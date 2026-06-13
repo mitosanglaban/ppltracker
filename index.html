@@ -808,7 +808,7 @@ function put(store, val){
   return new Promise((res,rej)=>{
     const r=tx(store,'readwrite').put(val);
     r.onsuccess=(e)=>{ val.recId=val.recId||e.target.result; res(e.target.result); };
-    r.onerror=(e)=>rej(e);
+    r.onerror=(e)=>{ console.error('put failed on', store, e.target.error); rej(e.target.error); };
   });
 }
 function del(store, key){ return new Promise(res=>{ tx(store,'readwrite').delete(key).onsuccess=()=>res(); }); }
@@ -1187,7 +1187,6 @@ function classifyClockIn(now){
 async function processClockIn(student, officer){
   const now=new Date(), date=todayStr(now), cls=classifyClockIn(now);
   const record = {
-    recId: undefined,
     date, studentId:student.id, studentName:student.name, type:'in',
     status:cls.status, finalStatus:cls.flagged?"Pending Review":cls.status,
     minutesLate:cls.minutesLate, timeIn:timeStr(now), timeOut:null,
