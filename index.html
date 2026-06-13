@@ -1444,20 +1444,27 @@ async function getRecordsForDate(date){
 }
   
 async function exportData(format){
-  const date=document.getElementById('exportDate').value||todayStr();
-  const rows=await getRecordsForDate(date);
-  const filename=`pplTracker_${date}`;
-  if(format==='xlsx'){
-    const ws=XLSX.utils.json_to_sheet(rows), wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,date); XLSX.writeFile(wb,filename+'.xlsx');
-  } else if(format==='csv'){
-    downloadBlob(XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(rows)),filename+'.csv','text/csv');
-  } else {
-    let txt=`pplTracker Attendance Report — ${date}\n12-Thomson, MSHS\n${'─'.repeat(40)}\n\n`;
-    rows.forEach(r=>{ txt+=`${r.Name.padEnd(30)} ${r.Status}  In:${r["Time In"]||'--:--'}  Out:${r["Time Out"]||'--:--'}\n`; if(r["Flag Reason"]) txt+=`  Note: ${r["Flag Reason"]}\n`; });
-    downloadBlob(txt,filename+'.txt','text/plain');
+  try {
+    const date=document.getElementById('exportDate').value||todayStr();
+    const rows=await getRecordsForDate(date);
+    const filename=`pplTracker_${date}`;
+    if(format==='xlsx'){
+      if(typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+      const ws=XLSX.utils.json_to_sheet(rows), wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,date); XLSX.writeFile(wb,filename+'.xlsx');
+    } else if(format==='csv'){
+      if(typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+      downloadBlob(XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(rows)),filename+'.csv','text/csv');
+    } else {
+      let txt=`pplTracker Attendance Report — ${date}\n12-Thomson, MSHS\n${'─'.repeat(40)}\n\n`;
+      rows.forEach(r=>{ txt+=`${r.Name.padEnd(30)} ${r.Status}  In:${r["Time In"]||'--:--'}  Out:${r["Time Out"]||'--:--'}\n`; if(r["Flag Reason"]) txt+=`  Note: ${r["Flag Reason"]}\n`; });
+      downloadBlob(txt,filename+'.txt','text/plain');
+    }
+    await logAction("System","Export",`Format: ${format}, Date: ${date}`);
+  } catch(e) {
+    alert("Export failed: " + e.message);
+    console.error('Export error:', e);
   }
-  await logAction("System","Export",`Format: ${format}, Date: ${date}`);
 }
 
 async function exportRange(format){
