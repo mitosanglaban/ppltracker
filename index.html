@@ -926,7 +926,10 @@ async function renderRoster(){
     delBtn.onclick = () => deleteStudent(s.id);
     tdDel.appendChild(delBtn);
 
-    tr.innerHTML = `<td style="font-weight:600;">${s.name}</td>`;
+    const tdName = document.createElement('td');
+    tdName.style.fontWeight = '600';
+    tdName.textContent = s.name;
+    tr.appendChild(tdName);
     tr.appendChild(tdQr);
     tr.appendChild(tdSave);
     tr.appendChild(tdDel);
