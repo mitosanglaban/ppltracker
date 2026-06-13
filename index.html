@@ -1037,13 +1037,22 @@ async function startScanner(mode){
   updateTimeWindowDisplay();
 
   scanLoop = setInterval(()=>{
-    if(videoEl.readyState !== videoEl.HAVE_ENOUGH_DATA) return;
-    canvas.width=videoEl.videoWidth; canvas.height=videoEl.videoHeight;
-    ctx.drawImage(videoEl,0,0,canvas.width,canvas.height);
-    const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
-    const code = jsQR(imgData.data, imgData.width, imgData.height);
-    if(code&&code.data) handleScan(code.data.trim(), mode, officer);
-  }, 350);
+    if(!videoEl.srcObject) return;
+    if(videoEl.videoWidth === 0 || videoEl.videoHeight === 0) return;
+    canvas.width = videoEl.videoWidth;
+    canvas.height = videoEl.videoHeight;
+    try {
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if(imgData.data.length === 0) return;
+      const code = jsQR(imgData.data, imgData.width, imgData.height, {
+        inversionAttempts: "dontInvert"
+      });
+      if(code && code.data) handleScan(code.data.trim(), mode, officer);
+    } catch(e) {
+      // frame not ready, skip silently
+    }
+  }, 200);
 }
 
 function stopScanner(){
@@ -1551,6 +1560,29 @@ async function bulkImportFile(){
     statusEl.style.color = 'var(--red)';
   }
 }
+/* ===================== OFFLINE RELOAD GUARD ===================== */
+window.addEventListener('beforeunload', (e) => {
+  if (!navigator.onLine) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !navigator.onLine) {
+    // App came back into focus while offline — do nothing, stay put
+    return;
+  }
+});
+
+// Override any accidental reload attempts while offline
+window.addEventListener('keydown', (e) => {
+  if (!navigator.onLine && (e.key === 'F5' || (e.ctrlKey && e.key === 'r'))) {
+    e.preventDefault();
+    alert('You are currently offline. Reload is disabled to protect your data.');
+  }
+});
 init();
 </script>
 </body>
