@@ -1049,8 +1049,19 @@ async function startScanner(mode){
   setScannerUI(mode, true);
 
   try {
-    zxingReader = new ZXing.BrowserQRCodeReader();
-    zxingReader.decodeFromVideoDevice(undefined, videoEl, (result, err) => {
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    zxingReader = new ZXing.BrowserQRCodeReader(hints, { delayBetweenScanAttempts: 100 });
+
+    const constraints = {
+      video: {
+        facingMode: "environment",
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    };
+
+    zxingReader.decodeFromConstraints(constraints, videoEl, (result, err) => {
       if(result){
         handleScan(result.getText().trim(), mode, officer);
       }
