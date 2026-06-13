@@ -1037,10 +1037,8 @@ function setScannerUI(mode, scanning){
 let zxingReader = null;
 
 async function startScanner(mode){
-  scanMode = mode;
   const videoEl = document.getElementById(mode==='in'?'scannerVideo':'scannerVideoOut');
   const officer = document.getElementById(mode==='in'?'officerNameIn':'officerNameOut').value.trim();
-  setScannerUI(mode, true);
   if(!officer){ alert("Please enter the officer's name before starting."); return; }
 
   const today = todayStr();
@@ -1048,23 +1046,24 @@ async function startScanner(mode){
   sessionScannedToday = new Set(records.filter(r=>r.date===today&&r.type===mode).map(r=>r.studentId));
   await logAction(officer, `${mode==='in'?'Clock-In':'Clock-Out'} Session Opened`, `Date: ${today}`);
   updateTimeWindowDisplay();
+  setScannerUI(mode, true);
 
   try {
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-
-    zxingReader = new ZXing.BrowserQRCodeReader(hints);
-    await zxingReader.decodeFromVideoDevice(null, videoEl, (result, err) => {
-      if(result) handleScan(result.getText().trim(), mode, officer);
+    zxingReader = new ZXing.BrowserQRCodeReader();
+    zxingReader.decodeFromVideoDevice(undefined, videoEl, (result, err) => {
+      if(result){
+        handleScan(result.getText().trim(), mode, officer);
+      }
     });
   } catch(e) {
-    alert("Scanner failed to start: " + e.message);
+    alert("Scanner failed: " + e.message);
+    setScannerUI(mode, false);
   }
 }
 
 function stopScanner(){
   if(zxingReader){
-    zxingReader.reset();
+    try { zxingReader.reset(); } catch(e){}
     zxingReader = null;
   }
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
