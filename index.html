@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pplTracker — 12-Thomson</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* ── TOKENS ── */
+:root[data-theme="dark"] {
+  --bg:         #0f1117;
+  --surface:    #181c27;
+  --surface2:   #1f2435;
+  --border:     #2a3047;
+  --text:       #e8eaf0;
+  --text-muted: #7b839e;
+  --accent:     #4f8ef7;
+  --accent-dim: #1e3a6e;
+  --green:      #22c55e;
+  --green-dim:  #14532d;
+  --yellow:     #eab308;
+  --yellow-dim: #422006;
+  --red:        #ef4444;
+  --red-dim:    #450a0a;
+  --purple:     #a855f7;
+  --purple-dim: #3b0764;
+  --header-bg:  #0d1020;
+  --nav-bg:     #0d1020;
+  --input-bg:   #0f1117;
+  --shadow:     0 2px 12px rgba(0,0,0,.45);
+}
+:root[data-theme="light"] {
+  --bg:         #f0f2f7;
+  --surface:    #ffffff;
+  --surface2:   #f5f7fc;
+  --border:     #dde1ee;
+  --text:       #111827;
+  --text-muted: #6b7280;
+  --accent:     #2563eb;
+  --accent-dim: #dbeafe;
+  --green:      #16a34a;
+  --green-dim:  #dcfce7;
+  --yellow:     #ca8a04;
+  --yellow-dim: #fefce8;
+  --red:        #dc2626;
+  --red-dim:    #fee2e2;
+  --purple:     #7c3aed;
+  --purple-dim: #ede9fe;
+  --header-bg:  #1e293b;
+  --nav-bg:     #ffffff;
+  --input-bg:   #f9fafb;
+  --shadow:     0 2px 8px rgba(0,0,0,.08);
+}
+
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding-bottom: 68px;
+  -webkit-font-smoothing: antialiased;
+  transition: background .2s, color .2s;
+}
+
+/* ── HEADER ── */
+header {
+  background: var(--header-bg);
+  padding: 0 16px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid var(--border);
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* Thomson SVG portrait logo */
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.header-title strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: .02em;
+}
+.header-title span {
+  font-size: 10px;
+  color: #7b839e;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#dateDisplay {
+  font-size: 11px;
+  color: #7b839e;
+  text-align: right;
+  line-height: 1.4;
+}
+.theme-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.theme-btn:hover { background: var(--border); }
+
+/* ── MAIN ── */
+main { padding: 14px; max-width: 720px; margin: 0 auto; }
+
+/* ── CARD ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 9px 14px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 3px 3px 3px 0;
+  letter-spacing: .01em;
+  transition: opacity .15s, background .15s;
+}
+.btn:hover { opacity: .88; }
+.btn.secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn.danger { background: var(--red); }
+.btn.success { background: var(--green); }
+.btn.sm { padding: 5px 10px; font-size: 12px; border-radius: 5px; }
+.btn-group { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+
+/* ── FORM ── */
+.field { margin-bottom: 12px; }
+.field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  padding: 9px 11px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color .15s;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.field textarea { min-height: 70px; resize: vertical; }
+.inline-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.inline-field input {
+  flex: 1;
+  padding: 7px 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--text);
+  font-family: inherit;
+}
+.inline-field input:focus { outline: none; border-color: var(--accent); }
+
+/* ── TABLES ── */
+.table-wrap { overflow-x: auto; margin-top: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  background: var(--surface2);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.b-green  { background: var(--green-dim);  color: var(--green); }
+.b-yellow { background: var(--yellow-dim); color: var(--yellow); }
+.b-red    { background: var(--red-dim);    color: var(--red); }
+.b-blue   { background: var(--accent-dim); color: var(--accent); }
+.b-purple { background: var(--purple-dim); color: var(--purple); }
+.b-gray   { background: var(--surface2);   color: var(--text-muted); }
+
+/* ── STAT ROW ── */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stat-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 10px;
+  text-align: center;
+}
+.stat-box .stat-num {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-box .stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.stat-box.s-green .stat-num { color: var(--green); }
+.stat-box.s-yellow .stat-num { color: var(--yellow); }
+.stat-box.s-red .stat-num { color: var(--red); }
+.stat-box.s-blue .stat-num { color: var(--accent); }
+
+/* ── NAVIGATION ── */
+nav.tabs {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--nav-bg);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 30;
+  height: 58px;
+}
+nav.tabs button {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 2px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-top: 2px solid transparent;
+  transition: color .15s;
+}
+nav.tabs button svg { flex-shrink: 0; }
+nav.tabs button.active { color: var(--accent); border-top-color: var(--accent); }
+
+/* ── VIEWS ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── SCANNER ── */
+#scannerVideo, #scannerVideoOut {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 10px;
+  background: #000;
+  display: block;
+  margin: 10px auto 0;
+  border: 2px solid var(--border);
+}
+.scan-result {
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  margin-top: 10px;
+  min-height: 22px;
+  letter-spacing: .01em;
+}
+.ok-flash  { color: var(--green); }
+.err-flash { color: var(--red); }
+
+/* ── QR CARD ── */
+.qr-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 10px 8px;
+  margin: 5px;
+  gap: 6px;
+}
+.qr-card canvas { display: block; }
+.qr-card .qr-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #111;
+  text-align: center;
+  max-width: 110px;
+  word-break: break-word;
+}
+.qr-grid { display: flex; flex-wrap: wrap; }
+
+/* ── PENDING FLAG ── */
+.flag-item {
+  background: var(--surface2);
+  border: 1px solid var(--yellow);
+  border-left: 3px solid var(--yellow);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.flag-item .flag-header {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.flag-item .flag-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* ── MISC ── */
+.muted { color: var(--text-muted); font-size: 12px; }
+.section-note { color: var(--text-muted); font-size: 12px; margin-bottom: 10px; line-height: 1.5; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > div { flex: 1; min-width: 130px; }
+details summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  user-select: none;
+}
+.divider { height: 1px; background: var(--border); margin: 12px 0; }
+.empty-state {
+  text-align: center;
+  padding: 20px 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.online-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+  margin-right: 4px;
+}
+.offline-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  display: inline-block;
+  margin-right: 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <!-- Thomson portrait SVG logo -->
+    <svg class="logo-mark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="64" height="64" rx="10" fill="#1a2035"/>
+      <!-- coat/jacket -->
+      <path d="M12 62 Q16 44 32 42 Q48 44 52 62Z" fill="#2a3a5c"/>
+      <!-- shirt/cravat -->
+      <path d="M27 42 L32 50 L37 42 Q34 45 32 45 Q30 45 27 42Z" fill="#e8eaf0"/>
+      <!-- neck -->
+      <rect x="29" y="39" width="6" height="5" rx="2" fill="#c8a882"/>
+      <!-- head -->
+      <ellipse cx="32" cy="30" rx="13" ry="14" fill="#c8a882"/>
+      <!-- hair -->
+      <path d="M19 28 Q18 16 32 15 Q46 16 45 28 Q42 20 32 20 Q22 20 19 28Z" fill="#4a3520"/>
+      <!-- sideburns -->
+      <path d="M19 28 Q17 33 19 36 Q20 30 21 28Z" fill="#4a3520"/>
+      <path d="M45 28 Q47 33 45 36 Q44 30 43 28Z" fill="#4a3520"/>
+      <!-- eyes -->
+      <ellipse cx="27" cy="30" rx="2" ry="2.2" fill="#2a1a0a"/>
+      <ellipse cx="37" cy="30" rx="2" ry="2.2" fill="#2a1a0a"/>
+      <!-- eyebrows -->
+      <path d="M24 26.5 Q27 25.5 30 26.5" stroke="#4a3520" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+      <path d="M34 26.5 Q37 25.5 40 26.5" stroke="#4a3520" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+      <!-- nose -->
+      <path d="M31 33 Q32 35 33 33" stroke="#a07850" stroke-width="1" fill="none" stroke-linecap="round"/>
+      <!-- mouth -->
+      <path d="M28 37 Q32 39.5 36 37" stroke="#8a5a3a" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      <!-- accent line at bottom -->
+      <rect x="0" y="60" width="64" height="4" rx="0" fill="#4f8ef7" opacity=".6"/>
+    </svg>
+    <div class="header-title">
+      <strong>pplTracker</strong>
+      <span>12-Thomson · MSHS</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div id="dateDisplay"></div>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">
+      <!-- moon icon default (dark mode) -->
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <div class="card">
+      <div class="card-title">Today's Attendance</div>
+      <div id="statRow" class="stat-row">
+        <div class="stat-box s-green"><div class="stat-num" id="s-present">—</div><div class="stat-label">Present</div></div>
+        <div class="stat-box s-yellow"><div class="stat-num" id="s-late">—</div><div class="stat-label">Late</div></div>
+        <div class="stat-box s-red"><div class="stat-num" id="s-absent">—</div><div class="stat-label">Absent</div></div>
+        <div class="stat-box s-blue"><div class="stat-num" id="s-total">—</div><div class="stat-label">Enrolled</div></div>
+      </div>
+      <div id="todaySummaryExtra" class="muted"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Quick Actions</div>
+      <div class="btn-group">
+        <button class="btn" onclick="goTab('scan')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="16" width="5" height="5" rx="1"/><path d="M16 16h5v5h-5z" opacity=".4"/><path d="M21 16v0M16 21v0M19 19v0"/></svg>
+          Clock-In Scanner
+        </button>
+        <button class="btn secondary" onclick="goTab('clockout')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Clock-Out Scanner
+        </button>
+        <button class="btn secondary" onclick="goTab('review')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          End-of-Day Review
+        </button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pending Items</div>
+      <div id="pendingCount" class="muted">Loading...</div>
+    </div>
+    <div class="card">
+      <div class="card-title">System Status</div>
+      <div id="systemStatus" class="muted">Checking...</div>
+    </div>
+  </div>
+
+  <!-- STUDENTS / ROSTER -->
+  <div class="view" id="view-students">
+    <div class="card">
+      <div class="card-title">Enroll Student</div>
+      <div class="field">
+        <label>Single Student — Full Name</label>
+        <input type="text" id="newStudentName" placeholder="e.g. Dela Cruz, Maria A.">
+      </div>
+      <button class="btn" onclick="addStudent()">Enroll & Generate QR</button>
+
+      <div class="divider"></div>
+
+      <div class="card-title" style="margin-top:4px;">Bulk Import</div>
+      <p class="section-note">Paste a list of names (one per line), or upload a CSV/Excel file with names in the first column. Duplicates are skipped automatically.</p>
+
+      <div class="field">
+        <label>Paste Names (one per line)</label>
+        <textarea id="bulkPasteInput" placeholder="Dela Cruz, Maria A.&#10;Santos, Juan B.&#10;Reyes, Ana C." style="min-height:100px;"></textarea>
+      </div>
+      <button class="btn secondary" onclick="bulkImportPaste()">Import Pasted Names</button>
+
+      <div class="divider"></div>
+
+      <div class="field">
+        <label>Upload CSV or Excel File (.csv, .xlsx, .xls)</label>
+        <input type="file" id="bulkFileInput" accept=".csv,.xlsx,.xls" style="padding:6px;font-size:13px;color:var(--text);">
+      </div>
+      <button class="btn secondary" onclick="bulkImportFile()">Import from File</button>
+      <div id="importStatus" class="muted" style="margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Class Roster — <span id="rosterCount">0</span> Students</div>
+      <div class="btn-group" style="margin-bottom:10px;">
+        <button class="btn sm secondary" onclick="printAllQRs()">Print All QR Codes</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>QR Code</th><th>Save</th><th></th></tr></thead>
+          <tbody id="rosterTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLOCK-IN SCANNER -->
+  <div class="view" id="view-scan">
+    <div class="card">
+      <div class="card-title">Clock-In Scanner</div>
+      <div class="inline-field">
+        <span style="white-space:nowrap;font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;">Officer</span>
+        <input type="text" id="officerNameIn" placeholder="Name of officer operating scanner">
+      </div>
+      <div class="btn-group">
+        <button class="btn success" onclick="startScanner('in')">Start Scanning</button>
+        <button class="btn danger" onclick="stopScanner()">Stop</button>
+      </div>
+      <video id="scannerVideo" autoplay playsinline muted></video>
+      <div class="scan-result" id="scanResult"></div>
+      <p class="muted" style="text-align:center;margin-top:6px;" id="timeWindowInfo"></p>
+    </div>
+    <div class="card">
+      <div class="card-title">Today's Clock-In Log — <span id="logInCount">0</span> Scans</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Time</th><th>Status</th></tr></thead>
+          <tbody id="logInTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLOCK-OUT SCANNER -->
+  <div class="view" id="view-clockout">
+    <div class="card">
+      <div class="card-title">Clock-Out Scanner</div>
+      <p class="section-note">Optional but recommended. Departure time is cross-referenced against the period schedule to automatically detect potential Cut Class incidents.</p>
+      <details style="margin-bottom:12px;">
+        <summary>Edit Period Schedule</summary>
+        <div style="margin-top:10px;" id="scheduleEditor"></div>
+        <div class="btn-group">
+          <button class="btn sm secondary" onclick="addPeriodRow()">Add Period</button>
+          <button class="btn sm" onclick="saveSchedule()">Save Schedule</button>
+        </div>
+      </details>
+      <div class="inline-field">
+        <span style="white-space:nowrap;font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:.05em;text-transform:uppercase;">Officer</span>
+        <input type="text" id="officerNameOut" placeholder="Name of officer operating scanner">
+      </div>
+      <div class="btn-group">
+        <button class="btn success" onclick="startScanner('out')">Start Scanning</button>
+        <button class="btn danger" onclick="stopScanner()">Stop</button>
+      </div>
+      <video id="scannerVideoOut" autoplay playsinline muted></video>
+      <div class="scan-result" id="scanResultOut"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Today's Clock-Out Log — <span id="logOutCount">0</span> Scans</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Time Out</th><th>Flag</th></tr></thead>
+          <tbody id="logOutTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVIEW -->
+  <div class="view" id="view-review">
+    <div class="card">
+      <div class="card-title">Pending Flagged Entries</div>
+      <p class="section-note">No flagged entry is finalized until the secretary resolves and documents it.</p>
+      <div id="pendingList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Cut Class Flags — Today</div>
+      <div id="cutClassList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Full Attendance Log — Today</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Status</th><th>In</th><th>Out</th><th></th></tr></thead>
+          <tbody id="reviewTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="view" id="view-export">
+    <div class="card">
+      <div class="card-title">Export — Single Day</div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="exportDate">
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="exportData('xlsx')">Export .xlsx</button>
+        <button class="btn secondary" onclick="exportData('csv')">Export .csv</button>
+        <button class="btn secondary" onclick="exportData('txt')">Export .txt</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Export — Date Range (Monthly Summary)</div>
+      <div class="row">
+        <div class="field"><label>From</label><input type="date" id="exportFrom"></div>
+        <div class="field"><label>To</label><input type="date" id="exportTo"></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="exportRange('xlsx')">Export Range .xlsx</button>
+        <button class="btn secondary" onclick="exportRange('csv')">Summary .csv</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Google Sheets Sync</div>
+      <p class="section-note">Requires internet connection. Paste your Google Apps Script Web App URL below. Sync is additive and non-destructive — only new or updated records are written.</p>
+      <div id="onlineStatus" style="margin-bottom:10px;" class="muted"></div>
+      <div class="field">
+        <label>Apps Script Web App URL</label>
+        <input type="text" id="sheetsUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="btn-group">
+        <button class="btn secondary" onclick="saveSheetsUrl()">Save URL</button>
+        <button class="btn" onclick="syncToSheets()">Sync Now</button>
+      </div>
+      <div id="syncStatus" class="muted" style="margin-top:8px;"></div>
+      <div class="divider"></div>
+      <details>
+        <summary>Apps Script Setup Instructions</summary>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);line-height:1.7;">
+          <p>1. Open Google Sheets and go to Extensions → Apps Script.</p>
+          <p>2. Paste the doPost(e) function that receives JSON: <code style="background:var(--surface2);padding:1px 5px;border-radius:3px;">{date, records:[{name,status,timeIn,timeOut,...}]}</code></p>
+          <p>3. Deploy as a Web App with access set to "Anyone".</p>
+          <p>4. Copy the deployment URL and paste it above.</p>
+          <p>The system sends one tab per month (e.g. "2026-06") and a final "Attendance Summary" tab.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- LOGS -->
+  <div class="view" id="view-logs">
+    <div class="card">
+      <div class="card-title">System Action Log</div>
+      <p class="section-note">Complete audit trail of all scanning sessions, manual overrides, flag resolutions, and exports. Every action is attributed to the responsible officer.</p>
+      <div class="btn-group" style="margin-bottom:10px;">
+        <button class="btn sm danger" onclick="clearOldLogs()">Clear Entries Older Than 30 Days</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Timestamp</th><th>Officer</th><th>Action</th><th>Details</th></tr></thead>
+          <tbody id="actionLogTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- NAVIGATION -->
+<nav class="tabs">
+  <button class="active" onclick="goTab('dashboard')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Home
+  </button>
+  <button onclick="goTab('students')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Roster
+  </button>
+  <button onclick="goTab('scan')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 23 1 18 1"/><line x1="23" y1="1" x2="16" y2="8"/><polyline points="1 6 1 1 6 1"/><line x1="1" y1="1" x2="8" y2="8"/><polyline points="23 18 23 23 18 23"/><line x1="23" y1="23" x2="16" y2="16"/><polyline points="1 18 1 23 6 23"/><line x1="1" y1="23" x2="8" y2="16"/></svg>
+    Clock-In
+  </button>
+  <button onclick="goTab('clockout')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Clock-Out
+  </button>
+  <button onclick="goTab('review')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+    Review
+  </button>
+  <button onclick="goTab('export')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    Export
+  </button>
+  <button onclick="goTab('logs')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Logs
+  </button>
+</nav>
+
+<script>
+/* ===================== THEME ===================== */
+function toggleTheme(){
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  localStorage.setItem('ppt-theme', isDark ? 'light' : 'dark');
+  const btn = document.getElementById('themeBtn');
+  btn.innerHTML = isDark
+    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>`;
+}
+(function initTheme(){
+  const saved = localStorage.getItem('ppt-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  if(saved === 'light'){
+    const btn = document.getElementById('themeBtn');
+    if(btn) btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+  }
+})();
+
+/* ===================== DB SETUP ===================== */
+let db;
+const DB_NAME  = "pplTrackerDB";
+const DB_VER   = 1;
+
+function openDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = (e)=>{
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('students')) d.createObjectStore('students', {keyPath:'id'});
+      if(!d.objectStoreNames.contains('records'))  d.createObjectStore('records',  {keyPath:'recId', autoIncrement:true});
+      if(!d.objectStoreNames.contains('logs'))     d.createObjectStore('logs',     {keyPath:'logId', autoIncrement:true});
+      if(!d.objectStoreNames.contains('config'))   d.createObjectStore('config',   {keyPath:'key'});
+    };
+    req.onsuccess = (e)=>{ db = e.target.result; resolve(db); };
+    req.onerror   = (e)=> reject(e);
+  });
+}
+function tx(store, mode='readonly'){ return db.transaction(store, mode).objectStore(store); }
+function getAll(store){
+  return new Promise(resolve=>{
+    const out=[], req=tx(store).openCursor();
+    req.onsuccess=(e)=>{ const c=e.target.result; if(c){ out.push(c.value); c.continue(); } else resolve(out); };
+  });
+}
+function put(store, val){
+  return new Promise((res,rej)=>{
+    const r=tx(store,'readwrite').put(val);
+    r.onsuccess=(e)=>{ val.recId=val.recId||e.target.result; res(e.target.result); };
+    r.onerror=(e)=>rej(e);
+  });
+}
+function del(store, key){ return new Promise(res=>{ tx(store,'readwrite').delete(key).onsuccess=()=>res(); }); }
+function getOne(store, key){ return new Promise(res=>{ const r=tx(store).get(key); r.onsuccess=()=>res(r.result); r.onerror=()=>res(null); }); }
+function getConfig(key, fallback){ return new Promise(res=>{ const r=tx('config').get(key); r.onsuccess=()=>res(r.result?r.result.value:fallback); r.onerror=()=>res(fallback); }); }
+function setConfig(key, value){ return put('config', {key, value}); }
+
+/* ===================== UTIL ===================== */
+function todayStr(d=new Date()){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0'); }
+function timeStr(d=new Date()){ return String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0')+":"+String(d.getSeconds()).padStart(2,'0'); }
+function fullTimestamp(d=new Date()){ return d.toISOString(); }
+
+function nameToId(name){ return name.trim(); }
+
+function statusBadge(status){
+  const map = {
+    "Early Clock-In":"b-blue","On Time":"b-green","Late":"b-yellow","Pending Review":"b-gray",
+    "Present":"b-green","Left Early":"b-purple","Excused Absence":"b-blue",
+    "Unexcused Absence":"b-red","Cut Class":"b-red","Cut Class (Flagged)":"b-yellow","Absent":"b-red"
+  };
+  return `<span class="badge ${map[status]||'b-gray'}">${status}</span>`;
+}
+
+async function logAction(officer, action, details){
+  await put('logs', { timestamp:fullTimestamp(), officer:officer||"(unspecified)", action, details:details||"" });
+  if(document.getElementById('view-logs').classList.contains('active')) renderLogs();
+}
+
+/* ===================== NAVIGATION ===================== */
+const TABS = ['dashboard','students','scan','clockout','review','export','logs'];
+function goTab(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('nav.tabs button').forEach((b,i)=>b.classList.toggle('active', TABS[i]===name));
+  if(name==='scan'||name==='clockout') stopScanner();
+  if(name==='students')  renderRoster();
+  if(name==='review')    renderReview();
+  if(name==='dashboard') renderDashboard();
+  if(name==='logs')      renderLogs();
+  if(name==='clockout')  renderSchedule();
+  if(name==='export'){
+    document.getElementById('exportDate').value = todayStr();
+    updateOnlineStatus();
+  }
+}
+
+/* ===================== STUDENTS ===================== */
+async function addStudent(){
+  const nameEl = document.getElementById('newStudentName');
+  const name = nameEl.value.trim();
+  if(!name){ alert("Please enter a student name."); return; }
+  const id = nameToId(name);
+  const existing = await getOne('students', id);
+  if(existing){ alert("A student with this name already exists in the roster."); return; }
+  await put('students', {id, name});
+  nameEl.value = '';
+  await logAction("System", "Student Enrolled", name);
+  renderRoster();
+}
+
+async function deleteStudent(id){
+  if(!confirm("Remove this student from the roster?\n\nPast attendance records will be retained.")) return;
+  await del('students', id);
+  await logAction("System", "Student Removed", id);
+  renderRoster();
+}
+
+async function saveQR(name){
+  try {
+    const dataUrl = await QRCode.toDataURL(name, {width:300, margin:2, color:{dark:'#000000',light:'#ffffff'}});
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = 'QR_' + name.replace(/[^a-zA-Z0-9]/g,'_') + '.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch(e) {
+    alert("QR save failed: " + e.message);
+  }
+}
+
+async function renderRoster(){
+  const students = await getAll('students');
+  students.sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById('rosterCount').textContent = students.length;
+  const tbody = document.getElementById('rosterTable');
+  tbody.innerHTML = '';
+
+  if(students.length === 0){
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">No students enrolled yet. Add a student above.</td></tr>`;
+    return;
+  }
+
+  for(const s of students){
+    const tr = document.createElement('tr');
+
+    // QR canvas cell
+    const tdQr = document.createElement('td');
+    const canvas = document.createElement('canvas');
+    await QRCode.toCanvas(canvas, s.id, {width:56, margin:1, color:{dark:'#000000',light:'#ffffff'}});
+    tdQr.appendChild(canvas);
+
+    // Save button cell
+    const tdSave = document.createElement('td');
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn sm secondary';
+    saveBtn.textContent = 'Save QR';
+    saveBtn.onclick = () => saveQR(s.name);
+    tdSave.appendChild(saveBtn);
+
+    // Remove button cell
+    const tdDel = document.createElement('td');
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn sm danger';
+    delBtn.textContent = 'Remove';
+    delBtn.onclick = () => deleteStudent(s.id);
+    tdDel.appendChild(delBtn);
+
+    tr.innerHTML = `<td style="font-weight:600;">${s.name}</td>`;
+    tr.appendChild(tdQr);
+    tr.appendChild(tdSave);
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  }
+}
+
+async function printAllQRs(){
+  const students = await getAll('students');
+  students.sort((a,b)=>a.name.localeCompare(b.name));
+  let html = `<!DOCTYPE html><html><head><title>QR Codes — 12-Thomson</title><style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,Segoe UI,sans-serif;padding:20px;}
+    h2{font-size:16px;margin-bottom:16px;color:#111;}
+    .grid{display:flex;flex-wrap:wrap;gap:12px;}
+    .box{border:1px solid #ccc;border-radius:8px;padding:10px;text-align:center;width:140px;background:#fff;}
+    .box img{width:110px;height:110px;display:block;margin:0 auto 6px;}
+    .name{font-size:11px;font-weight:700;color:#111;word-break:break-word;}
+    @media print{body{padding:8px;}h2{font-size:13px;}}
+  </style></head><body><h2>12-Thomson — Student QR Codes</h2><div class="grid">`;
+  for(const s of students){
+    const url = await QRCode.toDataURL(s.id, {width:220, margin:1});
+    html += `<div class="box"><img src="${url}"><div class="name">${s.name}</div></div>`;
+  }
+  html += `</div></body></html>`;
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 600);
+}
+
+/* ===================== PERIOD SCHEDULE ===================== */
+let schedule = [];
+async function loadSchedule(){
+  schedule = await getConfig('schedule', [
+    {name:"1st Period",  start:"07:00", end:"08:00"},
+    {name:"2nd Period",  start:"08:00", end:"09:00"},
+    {name:"3rd Period",  start:"09:00", end:"10:00"},
+    {name:"4th Period",  start:"10:00", end:"11:00"},
+    {name:"Lunch",       start:"11:00", end:"12:00"},
+    {name:"5th Period",  start:"12:00", end:"13:00"},
+    {name:"6th Period",  start:"13:00", end:"14:00"},
+    {name:"7th Period",  start:"14:00", end:"15:00"},
+    {name:"8th Period",  start:"15:00", end:"16:00"}
+  ]);
+}
+function renderSchedule(){
+  const el = document.getElementById('scheduleEditor');
+  el.innerHTML = '';
+  schedule.forEach((p,i)=>{
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.style.marginBottom = '6px';
+    div.innerHTML = `
+      <div><input type="text" value="${p.name}" data-i="${i}" data-f="name" style="padding:6px 8px;font-size:13px;background:var(--input-bg);border:1px solid var(--border);border-radius:5px;color:var(--text);width:100%;"></div>
+      <div><input type="time" value="${p.start}" data-i="${i}" data-f="start" style="padding:6px 8px;font-size:13px;background:var(--input-bg);border:1px solid var(--border);border-radius:5px;color:var(--text);width:100%;"></div>
+      <div><input type="time" value="${p.end}" data-i="${i}" data-f="end" style="padding:6px 8px;font-size:13px;background:var(--input-bg);border:1px solid var(--border);border-radius:5px;color:var(--text);width:100%;"></div>
+      <div style="flex:0;"><button class="btn sm danger" onclick="removePeriodRow(${i})">✕</button></div>
+    `;
+    el.appendChild(div);
+  });
+}
+function addPeriodRow(){ schedule.push({name:"New Period", start:"07:00", end:"08:00"}); renderSchedule(); }
+function removePeriodRow(i){ schedule.splice(i,1); renderSchedule(); }
+async function saveSchedule(){
+  const inputs = document.getElementById('scheduleEditor').querySelectorAll('input');
+  inputs.forEach(inp=>{ const i=+inp.dataset.i,f=inp.dataset.f; schedule[i][f]=inp.value; });
+  await setConfig('schedule', schedule);
+  alert("Schedule saved.");
+}
+
+/* ===================== SCANNER ===================== */
+let stream=null, scanLoop=null, scanMode=null;
+let sessionScannedToday = new Set();
+
+async function startScanner(mode){
+  scanMode = mode;
+  const videoEl = document.getElementById(mode==='in'?'scannerVideo':'scannerVideoOut');
+  const officer = document.getElementById(mode==='in'?'officerNameIn':'officerNameOut').value.trim();
+  if(!officer){ alert("Please enter the officer's name before starting. This is required for the accountability log."); return; }
+  try{ stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}); }
+  catch(e){ alert("Camera access failed: "+e.message); return; }
+  videoEl.srcObject = stream;
+
+  const today = todayStr();
+  const records = await getAll('records');
+  sessionScannedToday = new Set(records.filter(r=>r.date===today&&r.type===mode).map(r=>r.studentId));
+  await logAction(officer, `${mode==='in'?'Clock-In':'Clock-Out'} Session Opened`, `Date: ${today}`);
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  updateTimeWindowDisplay();
+
+  scanLoop = setInterval(()=>{
+    if(videoEl.readyState !== videoEl.HAVE_ENOUGH_DATA) return;
+    canvas.width=videoEl.videoWidth; canvas.height=videoEl.videoHeight;
+    ctx.drawImage(videoEl,0,0,canvas.width,canvas.height);
+    const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const code = jsQR(imgData.data, imgData.width, imgData.height);
+    if(code&&code.data) handleScan(code.data.trim(), mode, officer);
+  }, 350);
+}
+
+function stopScanner(){
+  if(scanLoop){ clearInterval(scanLoop); scanLoop=null; }
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+}
+
+function updateTimeWindowDisplay(){
+  const el = document.getElementById('timeWindowInfo');
+  if(!el) return;
+  const cls = classifyClockIn(new Date());
+  el.textContent = `Current window: ${cls.status}`;
+}
+
+function beep(ok=true){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = ok?880:220; g.gain.value=0.18;
+    o.start(); setTimeout(()=>{ o.stop(); ctx.close(); }, ok?120:300);
+  }catch(e){}
+}
+
+async function handleScan(studentId, mode, officer){
+  const resultEl = document.getElementById(mode==='in'?'scanResult':'scanResultOut');
+  if(sessionScannedToday.has(studentId)) return; // silent dedup
+
+  const student = await getOne('students', studentId);
+  if(!student){
+    beep(false);
+    resultEl.className='scan-result err-flash';
+    resultEl.textContent = `Unregistered QR`;
+    setTimeout(()=>resultEl.textContent='', 1800);
+    return;
+  }
+
+  sessionScannedToday.add(studentId);
+  if(mode==='in'){
+    await processClockIn(student, officer);
+    resultEl.className='scan-result ok-flash';
+    resultEl.textContent = student.name;
+  } else {
+    await processClockOut(student, officer);
+    resultEl.className='scan-result ok-flash';
+    resultEl.textContent = student.name + ' — clocked out';
+  }
+  beep(true);
+  setTimeout(()=>resultEl.textContent='', 1400);
+  refreshScanLogs();
+}
+
+/* ===================== TIME WINDOW LOGIC ===================== */
+function classifyClockIn(now){
+  const t = now.getHours()*60 + now.getMinutes();
+  if(t >= 360 && t <= 419) return {status:"Early Clock-In", flagged:false, minutesLate:0};
+  if(t === 420)            return {status:"On Time",        flagged:false, minutesLate:0};
+  if(t >= 421 && t <= 479) return {status:"Late",           flagged:false, minutesLate:t-420};
+  return {status:"Pending Review", flagged:true, minutesLate: t>420?t-420:null};
+}
+
+async function processClockIn(student, officer){
+  const now=new Date(), date=todayStr(now), cls=classifyClockIn(now);
+  const record = {
+    recId: undefined,
+    date, studentId:student.id, studentName:student.name, type:'in',
+    status:cls.status, finalStatus:cls.flagged?"Pending Review":cls.status,
+    minutesLate:cls.minutesLate, timeIn:timeStr(now), timeOut:null,
+    flagged:cls.flagged, flagResolved:!cls.flagged, flagReason:null,
+    excuseStatus:null, coverage:null, cutClassFlag:false, cutClassResolved:false,
+    officerIn:officer, overrideHistory:[]
+  };
+  await put('records', record);
+  await logAction(officer, "Clock-In Scan", `${student.name} → ${cls.status}${cls.flagged?" [FLAGGED]":""} at ${record.timeIn}`);
+}
+
+/* ===================== CLOCK-OUT / CUT CLASS ===================== */
+function periodAt(timeHHMM){
+  const [h,m]=timeHHMM.split(':').map(Number), mins=h*60+m;
+  for(const p of schedule){
+    const [sh,sm]=p.start.split(':').map(Number);
+    const [eh,em]=p.end.split(':').map(Number);
+    if(mins>=sh*60+sm && mins<eh*60+em) return p;
+  }
+  return null;
+}
+
+async function processClockOut(student, officer){
+  const now=new Date(), date=todayStr(now), tout=timeStr(now);
+  const records=await getAll('records');
+  let rec=records.find(r=>r.date===date&&r.studentId===student.id&&r.type==='in');
+  if(!rec){
+    rec={date,studentId:student.id,studentName:student.name,type:'in',
+      status:"Pending Review",finalStatus:"Pending Review",minutesLate:null,
+      timeIn:null,timeOut:null,flagged:true,flagResolved:false,
+      flagReason:"No clock-in recorded; clock-out only.",excuseStatus:null,
+      coverage:null,cutClassFlag:false,cutClassResolved:false,officerIn:null,overrideHistory:[]};
+  }
+  rec.timeOut=tout; rec.officerOut=officer;
+  const p=periodAt(tout);
+  if(p){ rec.cutClassFlag=true; rec.cutClassResolved=false; rec.cutClassPeriod=p.name; }
+  else  { rec.cutClassFlag=false; }
+  await put('records',rec);
+  await logAction(officer,"Clock-Out Scan",`${student.name} at ${tout}`+(p?` [POTENTIAL CUT CLASS during ${p.name}]`:""));
+}
+
+/* ===================== SCAN LOG TABLES ===================== */
+async function refreshScanLogs(){
+  const today=todayStr(), records=await getAll('records');
+  const inRecs=records.filter(r=>r.date===today&&r.type==='in').sort((a,b)=>(a.timeIn||'').localeCompare(b.timeIn||''));
+  const outRecs=records.filter(r=>r.date===today&&r.timeOut).sort((a,b)=>(a.timeOut||'').localeCompare(b.timeOut||''));
+
+  document.getElementById('logInCount').textContent=inRecs.length;
+  document.getElementById('logInTable').innerHTML=inRecs.length
+    ? inRecs.map(r=>`<tr><td style="font-weight:600;">${r.studentName}</td><td>${r.timeIn||'-'}</td><td>${statusBadge(r.finalStatus)}</td></tr>`).join('')
+    : `<tr><td colspan="3" class="empty-state">No scans recorded yet.</td></tr>`;
+
+  document.getElementById('logOutCount').textContent=outRecs.length;
+  document.getElementById('logOutTable').innerHTML=outRecs.length
+    ? outRecs.map(r=>`<tr><td style="font-weight:600;">${r.studentName}</td><td>${r.timeOut}</td><td>${r.cutClassFlag?statusBadge("Cut Class (Flagged)"):'-'}</td></tr>`).join('')
+    : `<tr><td colspan="3" class="empty-state">No clock-outs recorded yet.</td></tr>`;
+}
+
+/* ===================== DASHBOARD ===================== */
+async function renderDashboard(){
+  const now=new Date();
+  document.getElementById('dateDisplay').innerHTML =
+    `${now.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}<br>${now.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}`;
+
+  const today=todayStr(), records=await getAll('records'), students=await getAll('students');
+  const todayRecs=records.filter(r=>r.date===today&&r.type==='in');
+  const present=todayRecs.filter(r=>!["Absent","Unexcused Absence","Excused Absence"].includes(r.finalStatus)).length;
+  const late=todayRecs.filter(r=>r.finalStatus==="Late").length;
+  const absent=Math.max(0, students.length-todayRecs.length);
+
+  document.getElementById('s-present').textContent=present;
+  document.getElementById('s-late').textContent=late;
+  document.getElementById('s-absent').textContent=absent;
+  document.getElementById('s-total').textContent=students.length;
+
+  const pending=todayRecs.filter(r=>r.flagged&&!r.flagResolved);
+  const cutClass=todayRecs.filter(r=>r.cutClassFlag&&!r.cutClassResolved);
+  document.getElementById('pendingCount').innerHTML=
+    pending.length===0&&cutClass.length===0
+    ? `<span style="color:var(--green);font-weight:700;">No pending items.</span>`
+    : `<b style="color:var(--yellow);">${pending.length}</b> attendance flag(s) and <b style="color:var(--red);">${cutClass.length}</b> potential cut class incident(s) require review.`;
+
+  document.getElementById('systemStatus').innerHTML =
+    `<span class="${navigator.onLine?'online-dot':'offline-dot'}"></span>${navigator.onLine?'Online — Google Sheets sync available.':'Offline — all core features available. Sync requires connection.'}<br>
+     <span style="margin-top:4px;display:inline-block;">Storage: IndexedDB active. Service Worker: ${('serviceWorker' in navigator)?'registered':'unavailable'}.</span>`;
+}
+
+/* ===================== REVIEW ===================== */
+async function renderReview(){
+  const today=todayStr(), records=await getAll('records');
+  const todayRecs=records.filter(r=>r.date===today&&r.type==='in');
+
+  // Pending flags
+  const pending=todayRecs.filter(r=>r.flagged&&!r.flagResolved);
+  const pendingEl=document.getElementById('pendingList');
+  pendingEl.innerHTML=pending.length===0
+    ? `<div class="empty-state" style="color:var(--green);">No pending flagged entries.</div>`
+    : pending.map(r=>`
+      <div class="flag-item">
+        <div class="flag-header">${r.studentName}</div>
+        <div class="flag-sub">Scanned at ${r.timeIn||'N/A'} — ${r.minutesLate!==null?r.minutesLate+' min late':'outside all windows'}</div>
+        <div class="field"><label>Reason for late / out-of-window clock-in</label><textarea id="reason-${r.recId}" placeholder="Document the circumstance..."></textarea></div>
+        <div class="row">
+          <div class="field"><label>Excuse Letter Status</label>
+            <select id="excuse-${r.recId}">
+              <option value="Submitted">Submitted</option>
+              <option value="Pending Submission">Pending Submission</option>
+              <option value="Not Applicable">Not Applicable</option>
+            </select>
+          </div>
+          <div class="field"><label>Period(s) Missed</label><input type="text" id="coverage-${r.recId}" placeholder="e.g. 1st Period, or None"></div>
+        </div>
+        <div class="field"><label>Final Status</label>
+          <select id="finalstatus-${r.recId}">
+            <option value="Late">Late</option>
+            <option value="Excused Absence">Excused Absence</option>
+            <option value="Unexcused Absence">Unexcused Absence</option>
+            <option value="Present">Present</option>
+          </select>
+        </div>
+        <button class="btn sm" onclick="resolveFlag(${r.recId})">Resolve Entry</button>
+      </div>`).join('');
+
+  // Cut class flags
+  const cutClass=todayRecs.filter(r=>r.cutClassFlag&&!r.cutClassResolved);
+  document.getElementById('cutClassList').innerHTML=cutClass.length===0
+    ? `<div class="empty-state">No cut class flags today.</div>`
+    : cutClass.map(r=>`
+      <div class="flag-item">
+        <div class="flag-header">${r.studentName}</div>
+        <div class="flag-sub">Clocked out at ${r.timeOut} — during <strong>${r.cutClassPeriod}</strong></div>
+        <div class="btn-group">
+          <button class="btn sm danger" onclick="resolveCutClass(${r.recId}, true)">Confirm Cut Class</button>
+          <button class="btn sm secondary" onclick="resolveCutClass(${r.recId}, false)">Override / Excuse</button>
+        </div>
+      </div>`).join('');
+
+  // Full table
+  const students=await getAll('students');
+  const allRecs=todayRecs.slice().sort((a,b)=>a.studentName.localeCompare(b.studentName));
+  let tableHtml=allRecs.map(r=>`
+    <tr>
+      <td style="font-weight:600;">${r.studentName}</td>
+      <td>${statusBadge(r.finalStatus)}${r.cutClassFlag&&!r.cutClassResolved?' '+statusBadge("Cut Class (Flagged)"):''}</td>
+      <td>${r.timeIn||'—'}</td><td>${r.timeOut||'—'}</td>
+      <td><button class="btn sm secondary" onclick="openOverride(${r.recId})">Override</button></td>
+    </tr>`).join('');
+
+  const presentIds=new Set(todayRecs.map(r=>r.studentId));
+  const absentees=students.filter(s=>!presentIds.has(s.id));
+  tableHtml+=absentees.map(s=>`
+    <tr>
+      <td style="font-weight:600;">${s.name}</td>
+      <td>${statusBadge("Absent")}</td><td>—</td><td>—</td>
+      <td><button class="btn sm secondary" onclick="createAbsentRecord('${s.id}','${s.name.replace(/'/g,"\\'")}')">Set Status</button></td>
+    </tr>`).join('');
+
+  document.getElementById('reviewTable').innerHTML=tableHtml||`<tr><td colspan="5" class="empty-state">No records for today.</td></tr>`;
+}
+
+async function createAbsentRecord(id,name){
+  const status=prompt(`Set status for ${name}:\n\nOptions: Excused Absence / Unexcused Absence / Present / Late`,"Unexcused Absence");
+  if(!status) return;
+  const officer=prompt("Officer name (required for audit log):");
+  if(!officer) return;
+  const today=todayStr();
+  const rec={date:today,studentId:id,studentName:name,type:'in',
+    status,finalStatus:status,minutesLate:null,timeIn:null,timeOut:null,
+    flagged:false,flagResolved:true,flagReason:null,excuseStatus:null,
+    coverage:null,cutClassFlag:false,cutClassResolved:true,officerIn:officer,
+    overrideHistory:[{time:fullTimestamp(),officer,from:"Absent",to:status,reason:"Manual entry — no scan recorded"}]};
+  await put('records',rec);
+  await logAction(officer,"Manual Status Entry",`${name} → ${status}`);
+  renderReview(); renderDashboard();
+}
+
+async function resolveFlag(recId){
+  const reason=document.getElementById('reason-'+recId).value.trim();
+  if(!reason){ alert("A reason is required before resolving this entry."); return; }
+  const excuse=document.getElementById('excuse-'+recId).value;
+  const coverage=document.getElementById('coverage-'+recId).value.trim();
+  const finalStatus=document.getElementById('finalstatus-'+recId).value;
+  const rec=await getOne('records',recId);
+  rec.flagResolved=true; rec.flagReason=reason; rec.excuseStatus=excuse;
+  rec.coverage=coverage; rec.finalStatus=finalStatus;
+  rec.overrideHistory.push({time:fullTimestamp(),officer:rec.officerIn||"(secretary)",from:rec.status,to:finalStatus,reason});
+  await put('records',rec);
+  await logAction(rec.officerIn,"Flagged Entry Resolved",`${rec.studentName} → ${finalStatus} | Reason: ${reason} | Excuse: ${excuse}`);
+  renderReview(); renderDashboard();
+}
+
+async function resolveCutClass(recId,confirmed){
+  const rec=await getOne('records',recId);
+  if(confirmed){
+    rec.finalStatus="Cut Class"; rec.cutClassResolved=true;
+    rec.overrideHistory.push({time:fullTimestamp(),officer:rec.officerOut||"(secretary)",from:rec.finalStatus,to:"Cut Class",reason:"Confirmed during review"});
+    await logAction(rec.officerOut,"Cut Class Confirmed",`${rec.studentName} during ${rec.cutClassPeriod}`);
+  } else {
+    const reason=prompt("Reason for override / excuse:");
+    if(reason===null) return;
+    rec.cutClassResolved=true; rec.cutClassFlag=false;
+    rec.overrideHistory.push({time:fullTimestamp(),officer:rec.officerOut||"(secretary)",from:"Cut Class (Flagged)",to:rec.finalStatus,reason:reason||"Overridden"});
+    await logAction(rec.officerOut,"Cut Class Override",`${rec.studentName}: ${reason||'(no reason)'}`);
+  }
+  await put('records',rec); renderReview();
+}
+
+async function openOverride(recId){
+  const rec=await getOne('records',recId);
+  const options=["Present","Late","Left Early","Excused Absence","Unexcused Absence","Cut Class"];
+  const choice=prompt(`Override status for ${rec.studentName}\nCurrent: ${rec.finalStatus}\n\nOptions: ${options.join(', ')}`,rec.finalStatus);
+  if(!choice||!options.includes(choice)){ if(choice!==null) alert("Invalid status entered."); return; }
+  const reason=prompt("Reason for override (required for audit log):");
+  if(!reason){ alert("Override cancelled — reason is required."); return; }
+  const officer=prompt("Officer name performing this override:");
+  if(!officer){ alert("Override cancelled — officer name required."); return; }
+
+  let extra={};
+  if(choice==="Late"){ const m=prompt("Minutes late:"); extra.minutesLate=m; }
+  if(choice==="Left Early"){ const t=prompt("Time of departure (HH:MM):"); rec.timeOut=t; }
+
+  rec.overrideHistory.push({time:fullTimestamp(),officer,from:rec.finalStatus,to:choice,reason,...extra});
+  rec.finalStatus=choice;
+  await put('records',rec);
+  await logAction(officer,"Manual Override",`${rec.studentName}: ${rec.overrideHistory[rec.overrideHistory.length-1].from} → ${choice} | ${reason}`);
+  renderReview(); renderDashboard();
+}
+
+/* ===================== ACTION LOG ===================== */
+async function renderLogs(){
+  const logs=await getAll('logs');
+  logs.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+  const tbody=document.getElementById('actionLogTable');
+  tbody.innerHTML=logs.length
+    ? logs.map(l=>`<tr><td style="white-space:nowrap;">${new Date(l.timestamp).toLocaleString()}</td><td>${l.officer}</td><td>${l.action}</td><td style="font-size:11px;color:var(--text-muted);">${l.details}</td></tr>`).join('')
+    : `<tr><td colspan="4" class="empty-state">No log entries yet.</td></tr>`;
+}
+
+async function clearOldLogs(){
+  if(!confirm("Remove all log entries older than 30 days?")) return;
+  const logs=await getAll('logs');
+  const cutoff=Date.now()-30*24*60*60*1000;
+  let removed=0;
+  for(const l of logs){ if(new Date(l.timestamp).getTime()<cutoff){ await del('logs',l.logId); removed++; } }
+  alert(`Removed ${removed} log entries.`);
+  renderLogs();
+}
+
+/* ===================== EXPORT ===================== */
+async function getRecordsForDate(date){
+  const records=await getAll('records'), students=await getAll('students');
+  const dayRecs=records.filter(r=>r.date===date&&r.type==='in');
+  const recMap=new Map(dayRecs.map(r=>[r.studentId,r]));
+  return students.map(s=>{
+    const r=recMap.get(s.id);
+    return r
+      ? {
+          "Name": s.name,
+          "Status": r.finalStatus,
+          "Time In": r.timeIn||'',
+          "Time Out": r.timeOut||'',
+          "Minutes Late": r.minutesLate??'',
+          "Excuse Status": r.excuseStatus||'',
+          "Coverage": r.coverage||'',
+          "Cut Class Period": r.cutClassPeriod||'',
+          "Flag Reason": r.flagReason||''
+        }
+      : {
+          "Name": s.name,
+          "Status": "Absent (No Record)",
+          "Time In": '', "Time Out": '',
+          "Minutes Late": '', "Excuse Status": '',
+          "Coverage": '', "Cut Class Period": '', "Flag Reason": ''
+        };
+  });
+}
+
+async function exportData(format){
+  const date=document.getElementById('exportDate').value||todayStr();
+  const rows=await getRecordsForDate(date);
+  const filename=`pplTracker_${date}`;
+  if(format==='xlsx'){
+    const ws=XLSX.utils.json_to_sheet(rows), wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,date); XLSX.writeFile(wb,filename+'.xlsx');
+  } else if(format==='csv'){
+    downloadBlob(XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(rows)),filename+'.csv','text/csv');
+  } else {
+    let txt=`pplTracker Attendance Report — ${date}\n12-Thomson, MSHS\n${'─'.repeat(40)}\n\n`;
+    rows.forEach(r=>{ txt+=`${r.Name.padEnd(30)} ${r.Status}  In:${r["Time In"]||'--:--'}  Out:${r["Time Out"]||'--:--'}\n`; if(r["Flag Reason"]) txt+=`  Note: ${r["Flag Reason"]}\n`; });
+    downloadBlob(txt,filename+'.txt','text/plain');
+  }
+  await logAction("System","Export",`Format: ${format}, Date: ${date}`);
+}
+
+async function exportRange(format){
+  const from=document.getElementById('exportFrom').value, to=document.getElementById('exportTo').value;
+  if(!from||!to){ alert("Please select both a start and end date."); return; }
+  const students=await getAll('students'), records=await getAll('records');
+  const dates=[], wb=XLSX.utils.book_new(), summary={};
+  let d=new Date(from), end=new Date(to);
+  while(d<=end){ dates.push(todayStr(d)); d.setDate(d.getDate()+1); }
+  const monthGroups={};
+  dates.forEach(dt=>{ const m=dt.slice(0,7); (monthGroups[m]=monthGroups[m]||[]).push(dt); });
+  students.forEach(s=>summary[s.id]={Name:s.name,Present:0,Late:0,Absent:0,Excused:0,CutClass:0});
+  for(const [month,mdates] of Object.entries(monthGroups)){
+    const rows=students.map(s=>{
+      const row={Name:s.name};
+      mdates.forEach(dt=>{
+        const r=records.find(rec=>rec.date===dt&&rec.studentId===s.id&&rec.type==='in');
+        const st=r?r.finalStatus:"Absent"; row[dt]=st;
+        if(["Present","On Time","Early Clock-In","Late","Left Early"].includes(st)) summary[s.id].Present++;
+        if(st==="Late") summary[s.id].Late++;
+        if(st==="Absent"||st==="Unexcused Absence") summary[s.id].Absent++;
+        if(st==="Excused Absence") summary[s.id].Excused++;
+        if(st==="Cut Class") summary[s.id].CutClass++;
+      }); return row;
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows,{header:["Name",...mdates]}),month);
+  }
+  const sumRows=students.map(s=>({Name:s.name,Present:summary[s.id].Present,Late:summary[s.id].Late,Absent:summary[s.id].Absent,"Excused Absences":summary[s.id].Excused,"Cut Class Incidents":summary[s.id].CutClass}));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sumRows),"Attendance Summary");
+  if(format==='xlsx'){ XLSX.writeFile(wb,`pplTracker_${from}_to_${to}.xlsx`); }
+  else { downloadBlob(XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(sumRows)),`pplTracker_summary_${from}_to_${to}.csv`,'text/csv'); }
+  await logAction("System","Range Export",`${from} to ${to} (${format})`);
+}
+
+function downloadBlob(content,filename,mime){
+  const blob=new Blob([content],{type:mime}), url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+/* ===================== GOOGLE SHEETS ===================== */
+function updateOnlineStatus(){
+  const el=document.getElementById('onlineStatus');
+  if(el) el.innerHTML=navigator.onLine
+    ? `<span class="online-dot"></span>Online — sync available.`
+    : `<span class="offline-dot"></span>Offline — connect to a network to sync.`;
+}
+async function saveSheetsUrl(){
+  const url=document.getElementById('sheetsUrl').value.trim();
+  await setConfig('sheetsUrl',url); alert("URL saved.");
+}
+async function syncToSheets(){
+  const url=await getConfig('sheetsUrl','');
+  if(!url){ alert("Please save a Google Apps Script Web App URL first."); return; }
+  const statusEl=document.getElementById('syncStatus');
+  if(!navigator.onLine){ statusEl.textContent="No internet connection. Sync requires connectivity."; return; }
+  statusEl.textContent="Syncing...";
+  const date=todayStr(), rows=await getRecordsForDate(date);
+  try{
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,records:rows})});
+    statusEl.textContent=`Sync complete. Server response: ${res.status}`;
+    await logAction("System","Google Sheets Sync",`Date: ${date}, HTTP ${res.status}`);
+  }catch(e){ statusEl.textContent="Sync failed: "+e.message; }
+}
+
+/* ===================== INIT ===================== */
+async function init(){
+  await openDB();
+  await loadSchedule();
+  renderRoster();
+  renderDashboard();
+  refreshScanLogs();
+
+  const savedUrl=await getConfig('sheetsUrl','');
+  if(savedUrl) document.getElementById('sheetsUrl').value=savedUrl;
+  document.getElementById('exportDate').value=todayStr();
+
+  setInterval(renderDashboard, 30000);
+  window.addEventListener('online',  ()=>{ renderDashboard(); updateOnlineStatus(); });
+  window.addEventListener('offline', ()=>{ renderDashboard(); updateOnlineStatus(); });
+
+  // Register real service worker from /sw.js
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg=>console.log('SW registered, scope:', reg.scope))
+      .catch(err=>console.warn('SW registration failed:', err));
+  }
+}
+/* ===================== BULK IMPORT ===================== */
+async function bulkImportNames(names){
+  const statusEl = document.getElementById('importStatus');
+  let added=0, skipped=0;
+  for(const raw of names){
+    const name = raw.trim();
+    if(!name) continue;
+    const id = nameToId(name);
+    const existing = await getOne('students', id);
+    if(existing){ skipped++; continue; }
+    await put('students', {id, name});
+    await logAction("System", "Student Enrolled (Bulk)", name);
+    added++;
+  }
+  statusEl.textContent = `Import complete: ${added} added, ${skipped} skipped (duplicates).`;
+  statusEl.style.color = added>0 ? 'var(--green)' : 'var(--yellow)';
+  renderRoster();
+}
+
+async function bulkImportPaste(){
+  const raw = document.getElementById('bulkPasteInput').value;
+  if(!raw.trim()){ alert("Nothing to import — paste some names first."); return; }
+  const names = raw.split('\n').map(n=>n.trim()).filter(Boolean);
+  if(!names.length){ alert("No valid names found."); return; }
+  if(!confirm(`Import ${names.length} student(s)?`)) return;
+  document.getElementById('bulkPasteInput').value = '';
+  await bulkImportNames(names);
+}
+
+async function bulkImportFile(){
+  const fileInput = document.getElementById('bulkFileInput');
+  const file = fileInput.files[0];
+  if(!file){ alert("Please select a file first."); return; }
+  const statusEl = document.getElementById('importStatus');
+  statusEl.textContent = "Reading file...";
+  statusEl.style.color = 'var(--text-muted)';
+
+  try{
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+
+    // Grab first column, skip header row if it looks like a label
+    let names = rows
+      .map(r => String(r[0]||'').trim())
+      .filter(Boolean);
+
+    // Auto-detect and skip header if first row looks like a label (no comma, short, non-name)
+    if(names.length && names[0].toLowerCase().match(/^(name|student|full.?name|last.?name)$/)){
+      names = names.slice(1);
+    }
+
+    if(!names.length){ alert("No names found in the first column."); statusEl.textContent=''; return; }
+    if(!confirm(`Found ${names.length} name(s) in "${file.name}". Import?`)) return;
+    fileInput.value = '';
+    await bulkImportNames(names);
+  } catch(e){
+    statusEl.textContent = "File read failed: " + e.message;
+    statusEl.style.color = 'var(--red)';
+  }
+}
+init();
+</script>
+</body>
+</html>
