@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="/qrcode.min.js"></script>
-<script src="/jsQR.js"></script>
+<script src="/index.min.js"></script>
 <script src="/xlsx.min.js"></script>
 <style>
 /* ── TOKENS ── */
@@ -579,7 +579,7 @@ details summary {
       </div>
       <div class="btn-group">
         <button class="btn success" onclick="startScanner('in')">Start Scanning</button>
-        <button class="btn danger" onclick="stopScanner()">Stop</button>
+        <button class="btn danger" onclick="stopScanner()" style="display:none;">Stop</button>
       </div>
       <video id="scannerVideo" autoplay playsinline muted></video>
       <div class="scan-result" id="scanResult"></div>
@@ -615,7 +615,7 @@ details summary {
       </div>
       <div class="btn-group">
         <button class="btn success" onclick="startScanner('out')">Start Scanning</button>
-        <button class="btn danger" onclick="stopScanner()">Stop</button>
+        <button class="btn danger" onclick="stopScanner()" style="display:none;">Stop</button>
       </div>
       <video id="scannerVideoOut" autoplay playsinline muted></video>
       <div class="scan-result" id="scanResultOut"></div>
@@ -1018,46 +1018,59 @@ async function saveSchedule(){
 let stream=null, scanLoop=null, scanMode=null;
 let sessionScannedToday = new Set();
 
+function setScannerUI(mode, scanning){
+  const startBtn = document.querySelector(`#view-${mode==='in'?'scan':'clockout'} .btn.success`);
+  const stopBtn  = document.querySelector(`#view-${mode==='in'?'scan':'clockout'} .btn.danger`);
+  if(scanning){
+    startBtn.textContent = 'Already Scanning';
+    startBtn.disabled = true;
+    startBtn.style.opacity = '0.5';
+    stopBtn.style.display = 'inline-flex';
+  } else {
+    startBtn.textContent = 'Start Scanning';
+    startBtn.disabled = false;
+    startBtn.style.opacity = '1';
+    stopBtn.style.display = 'none';
+  }
+}
+
+let zxingReader = null;
+
 async function startScanner(mode){
   scanMode = mode;
   const videoEl = document.getElementById(mode==='in'?'scannerVideo':'scannerVideoOut');
   const officer = document.getElementById(mode==='in'?'officerNameIn':'officerNameOut').value.trim();
-  if(!officer){ alert("Please enter the officer's name before starting. This is required for the accountability log."); return; }
-  try{ stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}}); }
-  catch(e){ alert("Camera access failed: "+e.message); return; }
-  videoEl.srcObject = stream;
+  setScannerUI(mode, true);
+  if(!officer){ alert("Please enter the officer's name before starting."); return; }
 
   const today = todayStr();
   const records = await getAll('records');
   sessionScannedToday = new Set(records.filter(r=>r.date===today&&r.type===mode).map(r=>r.studentId));
   await logAction(officer, `${mode==='in'?'Clock-In':'Clock-Out'} Session Opened`, `Date: ${today}`);
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
   updateTimeWindowDisplay();
 
-  scanLoop = setInterval(()=>{
-    if(!videoEl.srcObject) return;
-    if(videoEl.videoWidth === 0 || videoEl.videoHeight === 0) return;
-    canvas.width = videoEl.videoWidth;
-    canvas.height = videoEl.videoHeight;
-    try {
-      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      if(imgData.data.length === 0) return;
-      const code = jsQR(imgData.data, imgData.width, imgData.height, {
-        inversionAttempts: "dontInvert"
-      });
-      if(code && code.data) handleScan(code.data.trim(), mode, officer);
-    } catch(e) {
-      // frame not ready, skip silently
-    }
-  }, 200);
+  try {
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+    zxingReader = new ZXing.BrowserQRCodeReader(hints);
+    await zxingReader.decodeFromVideoDevice(null, videoEl, (result, err) => {
+      if(result) handleScan(result.getText().trim(), mode, officer);
+    });
+  } catch(e) {
+    alert("Scanner failed to start: " + e.message);
+  }
 }
 
 function stopScanner(){
-  if(scanLoop){ clearInterval(scanLoop); scanLoop=null; }
+  if(zxingReader){
+    zxingReader.reset();
+    zxingReader = null;
+  }
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  if(scanLoop){ clearInterval(scanLoop); scanLoop=null; }
+  if(scanMode) setScannerUI(scanMode, false);
+  scanMode = null;
 }
 
 function updateTimeWindowDisplay(){
