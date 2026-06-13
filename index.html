@@ -1035,6 +1035,8 @@ function setScannerUI(mode, scanning){
 }
 
 let scanInterval = null;
+const scanCanvas = document.createElement('canvas');
+const scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
 
 async function startScanner(mode){
   const videoEl = document.getElementById(mode==='in'?'scannerVideo':'scannerVideoOut');
@@ -1050,32 +1052,56 @@ async function startScanner(mode){
 
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     videoEl.srcObject = stream;
     await videoEl.play();
 
-    if(!('BarcodeDetector' in window)){
-      alert("Your browser doesn't support BarcodeDetector. Try Chrome on Android.");
-      setScannerUI(mode, false);
-      return;
-    }
+    scanInterval = setInterval(() => {
+      if(videoEl.readyState !== videoEl.HAVE_ENOUGH_DATA) return;
 
-    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      scanCanvas.width = videoEl.videoWidth;
+      scanCanvas.height = videoEl.videoHeight;
+      scanCtx.drawImage(videoEl, 0, 0, scanCanvas.width, scanCanvas.height);
 
-    scanInterval = setInterval(async () => {
-      try {
-        const barcodes = await detector.detect(videoEl);
-        if(barcodes.length > 0){
-          handleScan(barcodes[0].rawValue.trim(), mode, officer);
-        }
-      } catch(e) { /* ignore frame errors */ }
-    }, 300);
+      let imageData = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+
+      // Try raw frame first
+      let code = jsQR(imageData.data, imageData.width, imageData.height);
+
+      // If that fails, try a contrast-boosted/grayscale version (helps with glare)
+      if(!code){
+        const enhanced = enhanceContrast(imageData);
+        code = jsQR(enhanced.data, enhanced.width, enhanced.height);
+      }
+
+      if(code && code.data){
+        handleScan(code.data.trim(), mode, officer);
+      }
+    }, 200);
 
   } catch(e) {
     alert("Scanner failed: " + e.message);
     setScannerUI(mode, false);
   }
+}
+
+function enhanceContrast(imageData){
+  const d = imageData.data;
+  // compute average luminance
+  let sum = 0;
+  for(let i = 0; i < d.length; i += 4){
+    sum += (d[i] + d[i+1] + d[i+2]) / 3;
+  }
+  const avg = sum / (d.length / 4);
+
+  // threshold around average -> hard black/white, kills glare washout
+  for(let i = 0; i < d.length; i += 4){
+    const lum = (d[i] + d[i+1] + d[i+2]) / 3;
+    const val = lum > avg ? 255 : 0;
+    d[i] = d[i+1] = d[i+2] = val;
+  }
+  return imageData;
 }
 
 function stopScanner(){
