@@ -1372,7 +1372,7 @@ async function getRecordsForDate(date){
         };
   });
 }
-
+  
 async function exportData(format){
   const date=document.getElementById('exportDate').value||todayStr();
   const rows=await getRecordsForDate(date);
