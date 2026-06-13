@@ -443,7 +443,7 @@ details summary {
 <header>
   <div class="header-left">
     <!-- Thomson portrait SVG logo -->
-    <svg class="logo-mark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <img class="logo-mark" src="/thomson.jpg" alt="J.J. Thomson" style="border-radius:10px;object-fit:cover;">
       <rect width="64" height="64" rx="10" fill="#1a2035"/>
       <!-- coat/jacket -->
       <path d="M12 62 Q16 44 32 42 Q48 44 52 62Z" fill="#2a3a5c"/>
@@ -758,6 +758,8 @@ details summary {
 </nav>
 
 <script>
+scanMode = mode;
+
 /* ===================== THEME ===================== */
 function toggleTheme(){
   const html = document.documentElement;
@@ -1135,8 +1137,11 @@ function beep(ok=true){
     const ctx = new (window.AudioContext||window.webkitAudioContext)();
     const o=ctx.createOscillator(), g=ctx.createGain();
     o.connect(g); g.connect(ctx.destination);
-    o.frequency.value = ok?880:220; g.gain.value=0.18;
-    o.start(); setTimeout(()=>{ o.stop(); ctx.close(); }, ok?120:300);
+    o.type = 'square';
+    o.frequency.value = ok?1000:220;
+    g.gain.value = ok?1:0.3;
+    o.start();
+    setTimeout(()=>{ o.stop(); ctx.close(); }, ok?180:300);
   }catch(e){}
 }
 
@@ -1649,7 +1654,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('keydown', (e) => {
   if (!navigator.onLine && (e.key === 'F5' || (e.ctrlKey && e.key === 'r'))) {
     e.preventDefault();
-    alert('You are currently offline. Reload is disabled to protect your data.');
+    alert("Hold on! 📵\n\nPlease don't reload while offline — this keeps pplTracker's offline mode working smoothly and protects today's records.\n\nYou're safe to continue using the app as normal.");
   }
 });
 init();
