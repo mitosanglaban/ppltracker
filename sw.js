@@ -1,31 +1,19 @@
-const CACHE_NAME = 'ppltracker-v3';
+const CACHE_NAME = 'ppltracker-v4';
 
 const CORE_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
-];
-
-const CDN_ASSETS = [
-  'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
-  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
+  '/manifest.json',
+  '/qrcode.min.js',
+  '/jsQR.js',
+  '/xlsx.min.js'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    Promise.all([
-      // Cache core assets - must succeed
-      caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS)),
-      // Cache CDN assets - try each individually, don't fail if one misses
-      caches.open(CACHE_NAME).then(cache =>
-        Promise.all(
-          CDN_ASSETS.map(url =>
-            cache.add(url).catch(err => console.warn('CDN cache miss:', url, err))
-          )
-        )
-      )
-    ]).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(CORE_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
