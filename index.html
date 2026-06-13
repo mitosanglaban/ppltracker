@@ -11,7 +11,6 @@
 <script src="/qrcode.min.js"></script>
 <script src="/index.min.js"></script>
 <script src="/xlsx.min.js"></script>
-<script src="/jsQR.js"></script>
 <style>
 /* ── TOKENS ── */
 :root[data-theme="dark"] {
@@ -1067,14 +1066,20 @@ async function startScanner(mode){
 
       let imageData = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
 
-      // Try raw frame first
-      let code = jsQR(imageData.data, imageData.width, imageData.height);
+      let code;
+      try {
+        code = jsQR(imageData.data, imageData.width, imageData.height);
+      } catch(e) {
+        resultEl_debug(mode, 'jsQR ERROR: ' + e.message);
+        return;
+      }
 
-      // If that fails, try a contrast-boosted/grayscale version (helps with glare)
       if(!code){
         const enhanced = enhanceContrast(imageData);
         code = jsQR(enhanced.data, enhanced.width, enhanced.height);
       }
+
+      resultEl_debug(mode, code ? ('FOUND: ' + code.data) : ('no code, jsQR type=' + typeof jsQR));
 
       if(code && code.data){
         handleScan(code.data.trim(), mode, officer);
@@ -1103,6 +1108,11 @@ function enhanceContrast(imageData){
     d[i] = d[i+1] = d[i+2] = val;
   }
   return imageData;
+}
+
+function resultEl_debug(mode, msg){
+  const el = document.getElementById(mode==='in'?'timeWindowInfo':'scanResultOut');
+  if(el) el.textContent = msg;
 }
 
 function stopScanner(){
