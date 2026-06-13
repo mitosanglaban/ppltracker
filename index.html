@@ -1091,18 +1091,25 @@ function beep(ok=true){
 
 async function handleScan(studentId, mode, officer){
   const resultEl = document.getElementById(mode==='in'?'scanResult':'scanResultOut');
-  if(sessionScannedToday.has(studentId)) return; // silent dedup
+  const normalized = studentId.trim();
+  if(sessionScannedToday.has(normalized)) return;
 
-  const student = await getOne('students', studentId);
+  let student = await getOne('students', normalized);
+  if(!student){
+    const all = await getAll('students');
+    student = all.find(s => s.id.trim().toLowerCase() === normalized.toLowerCase());
+  }
+
   if(!student){
     beep(false);
     resultEl.className='scan-result err-flash';
-    resultEl.textContent = `Unregistered QR`;
-    setTimeout(()=>resultEl.textContent='', 1800);
+    resultEl.textContent = `Unregistered: "${normalized}"`;
+    console.log('Scanned QR text:', JSON.stringify(studentId));
+    setTimeout(()=>resultEl.textContent='', 3000);
     return;
   }
 
-  sessionScannedToday.add(studentId);
+  sessionScannedToday.add(normalized);
   if(mode==='in'){
     await processClockIn(student, officer);
     resultEl.className='scan-result ok-flash';
