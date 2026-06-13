@@ -1034,7 +1034,7 @@ function setScannerUI(mode, scanning){
   }
 }
 
-let zxingReader = null;
+let scanInterval = null;
 
 async function startScanner(mode){
   const videoEl = document.getElementById(mode==='in'?'scannerVideo':'scannerVideoOut');
@@ -1049,23 +1049,29 @@ async function startScanner(mode){
   setScannerUI(mode, true);
 
   try {
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    zxingReader = new ZXing.BrowserQRCodeReader(hints, { delayBetweenScanAttempts: 100 });
-
-    const constraints = {
-      video: {
-        facingMode: "environment",
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      }
-    };
-
-    zxingReader.decodeFromConstraints(constraints, videoEl, (result, err) => {
-      if(result){
-        handleScan(result.getText().trim(), mode, officer);
-      }
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
     });
+    videoEl.srcObject = stream;
+    await videoEl.play();
+
+    if(!('BarcodeDetector' in window)){
+      alert("Your browser doesn't support BarcodeDetector. Try Chrome on Android.");
+      setScannerUI(mode, false);
+      return;
+    }
+
+    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+
+    scanInterval = setInterval(async () => {
+      try {
+        const barcodes = await detector.detect(videoEl);
+        if(barcodes.length > 0){
+          handleScan(barcodes[0].rawValue.trim(), mode, officer);
+        }
+      } catch(e) { /* ignore frame errors */ }
+    }, 300);
+
   } catch(e) {
     alert("Scanner failed: " + e.message);
     setScannerUI(mode, false);
@@ -1073,12 +1079,8 @@ async function startScanner(mode){
 }
 
 function stopScanner(){
-  if(zxingReader){
-    try { zxingReader.reset(); } catch(e){}
-    zxingReader = null;
-  }
+  if(scanInterval){ clearInterval(scanInterval); scanInterval = null; }
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
-  if(scanLoop){ clearInterval(scanLoop); scanLoop=null; }
   if(scanMode) setScannerUI(scanMode, false);
   scanMode = null;
 }
