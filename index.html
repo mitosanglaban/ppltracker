@@ -709,6 +709,17 @@ details summary {
         </div>
       </details>
     </div>
+
+    <div class="card" style="border-color: var(--red);">
+      <div class="card-title" style="color: var(--red);">⚠ Danger Zone</div>
+      <p style="color: var(--red); font-weight: 700; font-size: 13px; margin-bottom: 6px;">
+        WARNING: System reset permanently deletes ALL students, attendance records, and logs.
+        This cannot be undone.
+      </p>
+      <p class="muted" style="margin-bottom: 12px;">Use only at the start of a new academic year or when a full wipe is explicitly authorized by the class adviser.</p>
+      <button class="btn danger" onclick="systemReset()">Reset All Data</button>
+    </div>
+
   </div>
 
   <!-- LOGS -->
@@ -1602,6 +1613,72 @@ async function exportRange(format){
   if(format==='xlsx'){ XLSX.writeFile(wb,`pplTracker_${from}_to_${to}.xlsx`); }
   else { downloadBlob(XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(sumRows)),`pplTracker_summary_${from}_to_${to}.csv`,'text/csv'); }
   await logAction("System","Range Export",`${from} to ${to} (${format})`);
+}
+
+async function systemReset(){
+  // Step 1 — bold red warning dialog
+  const warn = confirm(
+    "⚠ SYSTEM RESET — READ CAREFULLY\n\n" +
+    "This will permanently delete:\n" +
+    "  • All enrolled students and QR codes\n" +
+    "  • All attendance records (every day)\n" +
+    "  • All system action logs\n" +
+    "  • All configuration settings\n\n" +
+    "THIS CANNOT BE UNDONE.\n\n" +
+    "Press OK only if you are absolutely sure."
+  );
+  if(!warn) return;
+
+  // Step 2 — name confirmation
+  const name = prompt(
+    "To confirm, type the full name of the person authorizing this reset.\n\n" +
+    "This name will be permanently recorded before all data is wiped."
+  );
+  if(!name || !name.trim()){
+    alert("Reset cancelled — no name was entered.");
+    return;
+  }
+
+  // Step 3 — final confirmation with name shown back
+  const final = confirm(
+    "FINAL CONFIRMATION\n\n" +
+    "Authorized by: " + name.trim() + "\n\n" +
+    "All data will be erased immediately after you press OK.\n" +
+    "There is no recovery option.\n\n" +
+    "Proceed with full system reset?"
+  );
+  if(!final) return;
+
+  // Wipe all stores
+  try {
+    const stores = ['students', 'records', 'logs', 'config'];
+    for(const store of stores){
+      await new Promise((res, rej) => {
+        const req = db.transaction(store, 'readwrite').objectStore(store).clear();
+        req.onsuccess = () => res();
+        req.onerror  = (e) => rej(e);
+      });
+    }
+
+    // Log the reset as the very first entry in the freshly cleared log
+    await put('logs', {
+      timestamp: fullTimestamp(),
+      officer: name.trim(),
+      action: "SYSTEM RESET",
+      details: "Full data wipe authorized and executed. All students, records, and logs erased."
+    });
+
+    alert(
+      "System reset complete.\n\n" +
+      "Authorized by: " + name.trim() + "\n" +
+      "All data has been erased. The page will now reload."
+    );
+
+    window.location.reload();
+
+  } catch(e) {
+    alert("Reset failed: " + e.message + "\n\nNo data was deleted.");
+  }
 }
 
 function downloadBlob(content,filename,mime){
