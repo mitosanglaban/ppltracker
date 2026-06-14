@@ -1798,26 +1798,29 @@ async function bulkImportFile(){
   }
 }
 /* ===================== OFFLINE RELOAD GUARD ===================== */
-window.addEventListener('beforeunload', (e) => {
-  if (!navigator.onLine) {
-    e.preventDefault();
-    e.returnValue = '';
-    return '';
-  }
-});
+// Track if reload was intentionally blocked — suppress beforeunload when we handle it ourselves
+let _blockingReload = false;
 
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !navigator.onLine) {
-    // App came back into focus while offline — do nothing, stay put
-    return;
-  }
-});
-
-// Override any accidental reload attempts while offline
 window.addEventListener('keydown', (e) => {
-  if (!navigator.onLine && (e.key === 'F5' || (e.ctrlKey && e.key === 'r'))) {
+  const isReload = e.key === 'F5' || (e.ctrlKey && e.key === 'r') || (e.metaKey && e.key === 'r');
+  if(isReload){
     e.preventDefault();
-    alert("Hold on! 📵\n\nPlease don't reload while offline — this keeps pplTracker's offline mode working smoothly and protects today's records.\n\nYou're safe to continue using the app as normal.");
+    e.stopImmediatePropagation();
+    _blockingReload = true;
+    if(!navigator.onLine){
+      alert("⚠ Don't reload while offline!\n\npplTracker stores all records locally in your browser. Reloading while offline may interrupt the current session.\n\nYou're safe to keep using the app normally.");
+    } else {
+      alert("⚠ Reload intercepted.\n\npplTracker is a PWA — reloading mid-session may clear your current scanning state.\n\nIf you need to restart, use the Stop button first and re-open the scanner.");
+    }
+    setTimeout(()=>{ _blockingReload = false; }, 100);
+  }
+}, true); // capture phase — fires before browser handles it
+
+window.addEventListener('beforeunload', (e) => {
+  if(_blockingReload) return; // already handled by keydown, skip
+  if(!navigator.onLine){
+    e.preventDefault();
+    e.returnValue = ''; // triggers browser's own dialog — unavoidable for mouse-click reload
   }
 });
 init();
