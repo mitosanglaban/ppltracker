@@ -339,7 +339,9 @@ nav.tabs button.active { color: var(--accent); border-top-color: var(--accent); 
 /* ── SCANNER ── */
 #scannerVideo, #scannerVideoOut {
   width: 100%;
-  max-width: 420px;
+  max-width: 260px;
+  max-height: 200px;
+  object-fit: cover;
   border-radius: 10px;
   background: #000;
   display: block;
@@ -435,10 +437,40 @@ details summary {
   display: inline-block;
   margin-right: 4px;
 }
+/* ── SCAN TOAST ── */
+#scanToast {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  background: var(--green);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+  max-width: 88vw;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#scanToast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#scanToast.err {
+  background: var(--red);
+}
 </style>
 </head>
 <body>
-
+<div id="scanToast"></div>
 <!-- HEADER -->
 <header>
   <div class="header-left">
@@ -1034,34 +1066,42 @@ async function startScanner(mode){
     videoEl.srcObject = stream;
     await videoEl.play();
 
-    scanInterval = setInterval(() => {
+    let _scanning = false;
+    scanInterval = setInterval(async () => {
+      if(_scanning) return; // drop frame if still processing previous
       if(videoEl.readyState !== videoEl.HAVE_ENOUGH_DATA) return;
 
-      scanCanvas.width = videoEl.videoWidth;
-      scanCanvas.height = videoEl.videoHeight;
-      scanCtx.drawImage(videoEl, 0, 0, scanCanvas.width, scanCanvas.height);
-
-      let imageData = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
-
-      let code;
+      _scanning = true;
       try {
-        code = jsQR(imageData.data, imageData.width, imageData.height);
+        // Scan at reduced resolution for speed (max 640px wide)
+        const srcW = videoEl.videoWidth, srcH = videoEl.videoHeight;
+        const scale = Math.min(1, 640 / srcW);
+        const w = Math.round(srcW * scale), h = Math.round(srcH * scale);
+        scanCanvas.width = w; scanCanvas.height = h;
+        scanCtx.drawImage(videoEl, 0, 0, w, h);
+
+        const imageData = scanCtx.getImageData(0, 0, w, h);
+
+        let code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert" // faster: skip inverted QR attempts
+        });
+
+        // Only try contrast fallback if first pass fails
+        if(!code){
+          const enhanced = enhanceContrast(imageData);
+          code = jsQR(enhanced.data, enhanced.width, enhanced.height, {
+            inversionAttempts: "dontInvert"
+          });
+        }
+
+        if(code && code.data){
+          handleScan(code.data.trim(), mode, officer);
+        }
       } catch(e) {
-        resultEl_debug(mode, 'jsQR ERROR: ' + e.message);
-        return;
+        console.warn('Scan frame error:', e.message);
       }
-
-      if(!code){
-        const enhanced = enhanceContrast(imageData);
-        code = jsQR(enhanced.data, enhanced.width, enhanced.height);
-      }
-
-      resultEl_debug(mode, code ? ('FOUND: ' + code.data) : ('no code, jsQR type=' + typeof jsQR));
-
-      if(code && code.data){
-        handleScan(code.data.trim(), mode, officer);
-      }
-    }, 200);
+      _scanning = false;
+    }, 80); // 80ms ≈ ~12fps — much faster than 200ms
 
   } catch(e) {
     alert("Scanner failed: " + e.message);
@@ -1106,17 +1146,54 @@ function updateTimeWindowDisplay(){
   el.textContent = `Current window: ${cls.status}`;
 }
 
+let _audioCtx = null;
+function getAudioCtx(){
+  if(!_audioCtx || _audioCtx.state === 'closed'){
+    _audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  }
+  if(_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
 function beep(ok=true){
   try{
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    const o=ctx.createOscillator(), g=ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.type = 'square';
-    o.frequency.value = ok?1000:220;
-    g.gain.value = ok?1:0.3;
-    o.start();
-    setTimeout(()=>{ o.stop(); ctx.close(); }, ok?180:300);
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    if(ok){
+      // Soft two-tone chime: 880 Hz + 1108 Hz (A5 + C#6), sine wave, quick fade
+      [880, 1108].forEach((freq, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine';
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.18, now + 0.01 + i*0.04);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.28 + i*0.04);
+        o.start(now + i*0.04);
+        o.stop(now + 0.32 + i*0.04);
+      });
+    } else {
+      // Low soft thud for error
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(280, now);
+      o.frequency.exponentialRampToValueAtTime(140, now + 0.2);
+      g.gain.setValueAtTime(0.15, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      o.start(now); o.stop(now + 0.28);
+    }
   }catch(e){}
+}
+
+let _toastTimer = null;
+function showToast(msg, isErr=false){
+  const t = document.getElementById('scanToast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' err' : '');
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>{ t.className = ''; }, 2200);
 }
 
 async function handleScan(studentId, mode, officer){
@@ -1134,6 +1211,7 @@ async function handleScan(studentId, mode, officer){
     beep(false);
     resultEl.className='scan-result err-flash';
     resultEl.textContent = `Unregistered: "${normalized}"`;
+    showToast('✗ Not registered: ' + normalized, true);
     console.log('Scanned QR text:', JSON.stringify(studentId));
     setTimeout(()=>resultEl.textContent='', 3000);
     return;
@@ -1144,10 +1222,12 @@ async function handleScan(studentId, mode, officer){
     await processClockIn(student, officer);
     resultEl.className='scan-result ok-flash';
     resultEl.textContent = student.name;
+    showToast('✓ Clocked in: ' + student.name);
   } else {
     await processClockOut(student, officer);
     resultEl.className='scan-result ok-flash';
     resultEl.textContent = student.name + ' — clocked out';
+    showToast('✓ Clocked out: ' + student.name);
   }
   beep(true);
   setTimeout(()=>resultEl.textContent='', 1400);
