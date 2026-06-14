@@ -1711,7 +1711,7 @@ async function syncToSheets(){
   statusEl.textContent="Syncing...";
   const date=todayStr(), rows=await getRecordsForDate(date);
   try{
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,records:rows})});
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({date,records:rows})});
     if(res.ok){
       statusEl.textContent=`Last sync: ${new Date().toLocaleTimeString()} — HTTP ${res.status}`;
       showToast('✓ Sync successful!');
