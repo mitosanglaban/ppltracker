@@ -1083,14 +1083,13 @@ async function startScanner(mode){
         const imageData = scanCtx.getImageData(0, 0, w, h);
 
         let code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert" // faster: skip inverted QR attempts
+          inversionAttempts: "dontInvert"
         });
 
-        // Only try contrast fallback if first pass fails
         if(!code){
           const enhanced = enhanceContrast(imageData);
           code = jsQR(enhanced.data, enhanced.width, enhanced.height, {
-            inversionAttempts: "dontInvert"
+            inversionAttempts: "attemptBoth" // only on fallback pass
           });
         }
 
@@ -1101,7 +1100,7 @@ async function startScanner(mode){
         console.warn('Scan frame error:', e.message);
       }
       _scanning = false;
-    }, 80); // 80ms ≈ ~12fps — much faster than 200ms
+    }, 50); // 80ms ≈ ~12fps — much faster than 200ms
 
   } catch(e) {
     alert("Scanner failed: " + e.message);
@@ -1196,10 +1195,13 @@ function showToast(msg, isErr=false){
   _toastTimer = setTimeout(()=>{ t.className = ''; }, 2200);
 }
 
+const _scanLock = new Set(); // synchronous in-flight guard
 async function handleScan(studentId, mode, officer){
   const resultEl = document.getElementById(mode==='in'?'scanResult':'scanResultOut');
   const normalized = studentId.trim();
   if(sessionScannedToday.has(normalized)) return;
+  if(_scanLock.has(normalized)) return; // already being processed this instant
+  _scanLock.add(normalized);
 
   let student = await getOne('students', normalized);
   if(!student){
@@ -1214,10 +1216,11 @@ async function handleScan(studentId, mode, officer){
     showToast('✗ Not registered: ' + normalized, true);
     console.log('Scanned QR text:', JSON.stringify(studentId));
     setTimeout(()=>resultEl.textContent='', 3000);
+    _scanLock.delete(normalized);
     return;
   }
 
-  sessionScannedToday.add(normalized);
+  sessionScannedToday.add(normalized); // add synchronously before any await
   if(mode==='in'){
     await processClockIn(student, officer);
     resultEl.className='scan-result ok-flash';
@@ -1232,6 +1235,7 @@ async function handleScan(studentId, mode, officer){
   beep(true);
   setTimeout(()=>resultEl.textContent='', 1400);
   refreshScanLogs();
+  _scanLock.delete(normalized);
 }
 
 /* ===================== TIME WINDOW LOGIC ===================== */
