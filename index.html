@@ -691,6 +691,9 @@ details summary {
       <div class="field">
         <label>Apps Script Web App URL</label>
         <input type="text" id="sheetsUrl" placeholder="https://script.google.com/macros/s/.../exec">
+        <p style="margin-top:6px;font-size:12px;color:var(--yellow);font-weight:600;">
+          💾 Remember to click <strong>Save URL</strong> after pasting — so you don't have to paste it again every time you open the app.
+        </p>
       </div>
       <div class="btn-group">
         <button class="btn secondary" onclick="saveSheetsUrl()">Save URL</button>
@@ -1696,7 +1699,9 @@ function updateOnlineStatus(){
 }
 async function saveSheetsUrl(){
   const url=document.getElementById('sheetsUrl').value.trim();
-  await setConfig('sheetsUrl',url); alert("URL saved.");
+  if(!url){ showToast('⚠ No URL entered — nothing saved.', true); return; }
+  await setConfig('sheetsUrl',url);
+  showToast('✓ URL saved! You won\'t need to paste it again.');
 }
 async function syncToSheets(){
   const url=await getConfig('sheetsUrl','');
@@ -1707,9 +1712,17 @@ async function syncToSheets(){
   const date=todayStr(), rows=await getRecordsForDate(date);
   try{
     const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,records:rows})});
-    statusEl.textContent=`Sync complete. Server response: ${res.status}`;
+    if(res.ok){
+      statusEl.textContent=`Last sync: ${new Date().toLocaleTimeString()} — HTTP ${res.status}`;
+      showToast('✓ Sync successful!');
+    } else {
+      statusEl.textContent=`Sync warning: HTTP ${res.status}`;
+      showToast('⚠ Sync returned ' + res.status, true);
+    }
     await logAction("System","Google Sheets Sync",`Date: ${date}, HTTP ${res.status}`);
-  }catch(e){ statusEl.textContent="Sync failed: "+e.message; }
+  }catch(e){
+    statusEl.textContent="Sync failed: "+e.message;
+    showToast('✗ Sync failed: ' + e.message, true);
 }
 
 /* ===================== INIT ===================== */
