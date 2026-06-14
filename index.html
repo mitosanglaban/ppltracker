@@ -585,7 +585,7 @@ details summary {
       </div>
       <div class="btn-group">
         <button class="btn success" onclick="startScanner('in')">Start Scanning</button>
-        <button class="btn danger" onclick="stopScanner()" style="display:none;">Stop</button>
+        <button class="btn danger" id="stopBtnIn" onclick="stopScanner()" style="display:none;">Stop Scanning</button>
       </div>
       <video id="scannerVideo" autoplay playsinline muted></video>
       <div class="scan-result" id="scanResult"></div>
@@ -621,7 +621,7 @@ details summary {
       </div>
       <div class="btn-group">
         <button class="btn success" onclick="startScanner('out')">Start Scanning</button>
-        <button class="btn danger" onclick="stopScanner()" style="display:none;">Stop</button>
+        <button class="btn danger" id="stopBtnOut" onclick="stopScanner()" style="display:none;">Stop Scanning</button>
       </div>
       <video id="scannerVideoOut" autoplay playsinline muted></video>
       <div class="scan-result" id="scanResultOut"></div>
@@ -1023,14 +1023,17 @@ async function saveSchedule(){
 }
 
 /* ===================== SCANNER ===================== */
-let stream=null, scanLoop=null, scanMode=null;
+let stream=null, scanLoop=null, scanMode=null, _rafId=null;
 let sessionScannedToday = new Set();
 
 function setScannerUI(mode, scanning){
-  const startBtn = document.querySelector(`#view-${mode==='in'?'scan':'clockout'} .btn.success`);
-  const stopBtn  = document.querySelector(`#view-${mode==='in'?'scan':'clockout'} .btn.danger`);
+  const viewId = mode==='in' ? 'view-scan' : 'view-clockout';
+  const view = document.getElementById(viewId);
+  const startBtn = view.querySelector('.btn.success');
+  const stopBtn  = view.querySelector('.btn.danger');
+  if(!startBtn || !stopBtn) return;
   if(scanning){
-    startBtn.textContent = 'Already Scanning';
+    startBtn.textContent = 'Scanning…';
     startBtn.disabled = true;
     startBtn.style.opacity = '0.5';
     stopBtn.style.display = 'inline-flex';
@@ -1067,30 +1070,38 @@ async function startScanner(mode){
     await videoEl.play();
 
     let _scanning = false;
-    scanInterval = setInterval(async () => {
-      if(_scanning) return; // drop frame if still processing previous
+    let _missCount = 0;
+
+    function scanFrame(){
+      if(!stream) return;
+      _rafId = requestAnimationFrame(scanFrame);
+      if(_scanning) return;
       if(videoEl.readyState !== videoEl.HAVE_ENOUGH_DATA) return;
 
       _scanning = true;
       try {
-        // Scan at reduced resolution for speed (max 640px wide)
         const srcW = videoEl.videoWidth, srcH = videoEl.videoHeight;
-        const scale = Math.min(1, 640 / srcW);
-        const w = Math.round(srcW * scale), h = Math.round(srcH * scale);
-        scanCanvas.width = w; scanCanvas.height = h;
-        scanCtx.drawImage(videoEl, 0, 0, w, h);
+        if(!srcW || !srcH){ _scanning = false; return; }
 
+        const scale = Math.min(1, 400 / Math.max(srcW, srcH));
+        const w = Math.round(srcW * scale), h = Math.round(srcH * scale);
+
+        if(scanCanvas.width !== w || scanCanvas.height !== h){
+          scanCanvas.width = w; scanCanvas.height = h;
+        }
+        scanCtx.drawImage(videoEl, 0, 0, w, h);
         const imageData = scanCtx.getImageData(0, 0, w, h);
 
-        let code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert"
-        });
+        let code = jsQR(imageData.data, w, h, { inversionAttempts: "dontInvert" });
 
         if(!code){
-          const enhanced = enhanceContrast(imageData);
-          code = jsQR(enhanced.data, enhanced.width, enhanced.height, {
-            inversionAttempts: "attemptBoth" // only on fallback pass
-          });
+          _missCount++;
+          if(_missCount % 4 === 0){
+            const enhanced = enhanceContrast(imageData);
+            code = jsQR(enhanced.data, w, h, { inversionAttempts: "attemptBoth" });
+          }
+        } else {
+          _missCount = 0;
         }
 
         if(code && code.data){
@@ -1100,7 +1111,9 @@ async function startScanner(mode){
         console.warn('Scan frame error:', e.message);
       }
       _scanning = false;
-    }, 50); // 80ms ≈ ~12fps — much faster than 200ms
+    }
+
+    scanFrame();
 
   } catch(e) {
     alert("Scanner failed: " + e.message);
@@ -1132,7 +1145,7 @@ function resultEl_debug(mode, msg){
 }
 
 function stopScanner(){
-  if(scanInterval){ clearInterval(scanInterval); scanInterval = null; }
+  if(_rafId){ cancelAnimationFrame(_rafId); _rafId = null; }
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
   if(scanMode) setScannerUI(scanMode, false);
   scanMode = null;
@@ -1199,8 +1212,16 @@ const _scanLock = new Set(); // synchronous in-flight guard
 async function handleScan(studentId, mode, officer){
   const resultEl = document.getElementById(mode==='in'?'scanResult':'scanResultOut');
   const normalized = studentId.trim();
-  if(sessionScannedToday.has(normalized)) return;
-  if(_scanLock.has(normalized)) return; // already being processed this instant
+  if(_scanLock.has(normalized)) return;
+  if(sessionScannedToday.has(normalized)){
+    const resultEl = document.getElementById(mode==='in'?'scanResult':'scanResultOut');
+    showToast('Already scanned: ' + normalized, true);
+    resultEl.className='scan-result err-flash';
+    resultEl.textContent = 'Already scanned';
+    setTimeout(()=>resultEl.textContent='', 1200);
+    beep(false);
+    return;
+  }
   _scanLock.add(normalized);
 
   let student = await getOne('students', normalized);
