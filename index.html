@@ -89,7 +89,6 @@ header {
   align-items: center;
   gap: 10px;
 }
-/* Thomson SVG portrait logo */
 .logo-mark {
   width: 32px;
   height: 32px;
@@ -281,6 +280,15 @@ tr:last-child td { border-bottom: none; }
   border-radius: 8px;
   padding: 12px 10px;
   text-align: center;
+  cursor: default;
+  transition: border-color .15s, background .15s;
+}
+.stat-box.clickable {
+  cursor: pointer;
+}
+.stat-box.clickable:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
 }
 .stat-box .stat-num {
   font-size: 22px;
@@ -402,6 +410,60 @@ nav.tabs button.active { color: var(--accent); border-top-color: var(--accent); 
   margin-bottom: 10px;
 }
 
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+.modal-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.modal-close:hover { background: var(--surface2); color: var(--text); }
+.modal-list-item {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-list-item:last-child { border-bottom: none; }
+
 /* ── MISC ── */
 .muted { color: var(--text-muted); font-size: 12px; }
 .section-note { color: var(--text-muted); font-size: 12px; margin-bottom: 10px; line-height: 1.5; }
@@ -471,10 +533,21 @@ details summary {
 </head>
 <body>
 <div id="scanToast"></div>
+
+<!-- MODAL -->
+<div id="modalOverlay" class="modal-overlay" style="display:none;" onclick="closeModalOnOverlay(event)">
+  <div class="modal-box">
+    <div class="modal-title">
+      <span id="modalTitle">List</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
 <!-- HEADER -->
 <header>
   <div class="header-left">
-    <!-- Thomson portrait SVG logo -->
     <img class="logo-mark" src="/thomson.jpg" alt="J.J. Thomson" style="border-radius:10px;object-fit:cover;">
     <div class="header-title">
       <strong>pplTracker</strong>
@@ -484,7 +557,6 @@ details summary {
   <div class="header-right">
     <div id="dateDisplay"></div>
     <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">
-      <!-- moon icon default (dark mode) -->
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
     </button>
   </div>
@@ -497,9 +569,15 @@ details summary {
     <div class="card">
       <div class="card-title">Today's Attendance</div>
       <div id="statRow" class="stat-row">
-        <div class="stat-box s-green"><div class="stat-num" id="s-present">—</div><div class="stat-label">Present</div></div>
+        <div class="stat-box s-green clickable" onclick="showPresentModal()" title="Click to see who's present">
+          <div class="stat-num" id="s-present">—</div>
+          <div class="stat-label">Present</div>
+        </div>
         <div class="stat-box s-yellow"><div class="stat-num" id="s-late">—</div><div class="stat-label">Late</div></div>
-        <div class="stat-box s-red"><div class="stat-num" id="s-absent">—</div><div class="stat-label">Absent</div></div>
+        <div class="stat-box s-red clickable" onclick="showAbsentModal()" title="Click to see who's absent">
+          <div class="stat-num" id="s-absent">—</div>
+          <div class="stat-label">Absent</div>
+        </div>
         <div class="stat-box s-blue"><div class="stat-num" id="s-total">—</div><div class="stat-label">Enrolled</div></div>
       </div>
       <div id="todaySummaryExtra" class="muted"></div>
@@ -559,6 +637,26 @@ details summary {
         <input type="file" id="bulkFileInput" accept=".csv,.xlsx,.xls" style="padding:6px;font-size:13px;color:var(--text);">
       </div>
       <button class="btn secondary" onclick="bulkImportFile()">Import from File</button>
+
+      <div class="divider"></div>
+
+      <!-- ── NEW: PDF QR IMPORT ── -->
+      <div class="card-title" style="margin-top:4px;">Import QR Codes from PDF</div>
+      <p class="section-note">
+        Upload a PDF of printed QR code sheets (e.g. the "Print All QR Codes" output saved as PDF).
+        Each page is scanned automatically — any QR code that matches an enrolled student is confirmed;
+        unrecognized codes are listed so you can review them.
+      </p>
+      <div class="field">
+        <label>Upload PDF File (.pdf)</label>
+        <input type="file" id="pdfQrFileInput" accept=".pdf" style="padding:6px;font-size:13px;color:var(--text);">
+      </div>
+      <button class="btn secondary" onclick="importQRsFromPDF()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Scan QR Codes from PDF
+      </button>
+      <div id="pdfQrStatus" class="muted" style="margin-top:8px;line-height:1.6;"></div>
+
       <div id="importStatus" class="muted" style="margin-top:8px;"></div>
     </div>
     <div class="card">
@@ -857,6 +955,57 @@ async function logAction(officer, action, details){
   if(document.getElementById('view-logs').classList.contains('active')) renderLogs();
 }
 
+/* ===================== MODAL ===================== */
+function openModal(title, html){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+function closeModal(){
+  document.getElementById('modalOverlay').style.display = 'none';
+}
+function closeModalOnOverlay(e){
+  if(e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+async function showPresentModal(){
+  const today = todayStr();
+  const records = await getAll('records');
+  const todayRecs = records.filter(r => r.date === today && r.type === 'in');
+  const present = todayRecs.filter(r => !["Absent","Unexcused Absence","Excused Absence"].includes(r.finalStatus));
+  present.sort((a,b) => a.studentName.localeCompare(b.studentName));
+  if(!present.length){
+    openModal('Present Today (0)', `<div class="empty-state">No one has clocked in yet.</div>`);
+    return;
+  }
+  const rows = present.map(r => `
+    <div class="modal-list-item">
+      <span style="font-weight:600;">${r.studentName}</span>
+      <span>${statusBadge(r.finalStatus)}</span>
+    </div>`).join('');
+  openModal(`Present Today (${present.length})`, rows);
+}
+
+async function showAbsentModal(){
+  const today = todayStr();
+  const students = await getAll('students');
+  const records = await getAll('records');
+  const todayRecs = records.filter(r => r.date === today && r.type === 'in');
+  const presentIds = new Set(todayRecs.map(r => r.studentId));
+  const absentees = students.filter(s => !presentIds.has(s.id));
+  absentees.sort((a,b) => a.name.localeCompare(b.name));
+  if(!absentees.length){
+    openModal('Absent Today (0)', `<div class="empty-state" style="color:var(--green);">Everyone has clocked in!</div>`);
+    return;
+  }
+  const rows = absentees.map(s => `
+    <div class="modal-list-item">
+      <span style="font-weight:600;">${s.name}</span>
+      <span>${statusBadge("Absent")}</span>
+    </div>`).join('');
+  openModal(`Not Yet In / Absent (${absentees.length})`, rows);
+}
+
 /* ===================== NAVIGATION ===================== */
 const TABS = ['dashboard','students','scan','clockout','review','export','logs'];
 function goTab(name){
@@ -994,6 +1143,146 @@ async function printAllQRs(){
   w.document.write(html);
   w.document.close();
   setTimeout(()=>w.print(), 800);
+}
+
+/* ===================== PDF QR IMPORT ===================== */
+async function importQRsFromPDF(){
+  const fileInput = document.getElementById('pdfQrFileInput');
+  const statusEl  = document.getElementById('pdfQrStatus');
+  const file = fileInput.files[0];
+  if(!file){ alert("Please select a PDF file first."); return; }
+
+  statusEl.style.color = 'var(--text-muted)';
+  statusEl.textContent = 'Loading PDF.js…';
+
+  // Dynamically load PDF.js from CDN if not already loaded
+  if(!window.pdfjsLib){
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Failed to load PDF.js'));
+      document.head.appendChild(script);
+    });
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  statusEl.textContent = 'Reading PDF…';
+
+  let pdfDoc;
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  } catch(e) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = 'Failed to read PDF: ' + e.message;
+    return;
+  }
+
+  const students = await getAll('students');
+  const studentMap = new Map(students.map(s => [s.id.trim().toLowerCase(), s]));
+
+  const offscreenCanvas = document.createElement('canvas');
+  const offscreenCtx   = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+
+  const matched   = [];
+  const unmatched = [];
+  const seen      = new Set();
+
+  const totalPages = pdfDoc.numPages;
+
+  for(let pageNum = 1; pageNum <= totalPages; pageNum++){
+    statusEl.textContent = `Scanning page ${pageNum} of ${totalPages}…`;
+
+    const page     = await pdfDoc.getPage(pageNum);
+    const scale    = 2.0; // higher = better QR detection accuracy
+    const viewport = page.getViewport({ scale });
+
+    offscreenCanvas.width  = viewport.width;
+    offscreenCanvas.height = viewport.height;
+
+    await page.render({ canvasContext: offscreenCtx, viewport }).promise;
+
+    // Try scanning the whole page first
+    const fullImageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    const codesFound = scanImageDataForQRs(fullImageData, offscreenCanvas.width, offscreenCanvas.height);
+
+    if(codesFound.length === 0){
+      // Fallback: try a grid of sub-regions (catches small QRs in grid layouts)
+      const cols = 3, rows = 4;
+      const cw = Math.floor(offscreenCanvas.width  / cols);
+      const ch = Math.floor(offscreenCanvas.height / rows);
+      for(let row = 0; row < rows; row++){
+        for(let col = 0; col < cols; col++){
+          const x = col * cw, y = row * ch;
+          const regionData = offscreenCtx.getImageData(x, y, cw, ch);
+          const found = scanImageDataForQRs(regionData, cw, ch);
+          codesFound.push(...found);
+        }
+      }
+    }
+
+    // Deduplicate and classify
+    for(const code of codesFound){
+      const raw = code.trim();
+      if(!raw || seen.has(raw)) continue;
+      seen.add(raw);
+      const lower = raw.toLowerCase();
+      if(studentMap.has(lower)){
+        matched.push(studentMap.get(lower).name);
+      } else {
+        unmatched.push(raw);
+      }
+    }
+  }
+
+  fileInput.value = '';
+
+  // Build result summary
+  if(matched.length === 0 && unmatched.length === 0){
+    statusEl.style.color = 'var(--yellow)';
+    statusEl.textContent = 'No QR codes detected in this PDF. Try a higher-quality scan or a larger page size.';
+    return;
+  }
+
+  let summary = '';
+  if(matched.length){
+    summary += `<span style="color:var(--green);font-weight:700;">✓ ${matched.length} student QR code(s) found and matched:</span><br>`;
+    summary += matched.map(n => `&nbsp;&nbsp;• ${n}`).join('<br>') + '<br><br>';
+  }
+  if(unmatched.length){
+    summary += `<span style="color:var(--yellow);font-weight:700;">⚠ ${unmatched.length} unrecognized QR code(s) — not in roster:</span><br>`;
+    summary += unmatched.map(n => `&nbsp;&nbsp;• ${n}`).join('<br>');
+  }
+
+  statusEl.style.color = 'var(--text)';
+  statusEl.innerHTML = summary;
+
+  await logAction("System", "PDF QR Import", `${matched.length} matched, ${unmatched.length} unrecognized. File: ${file.name}`);
+}
+
+function scanImageDataForQRs(imageData, width, height){
+  const results = [];
+  // Attempt 1: raw pixels
+  const code1 = jsQR(imageData.data, width, height, { inversionAttempts: "attemptBoth" });
+  if(code1 && code1.data) results.push(code1.data);
+
+  // Attempt 2: contrast-enhanced
+  const enhanced = new ImageData(new Uint8ClampedArray(imageData.data), width, height);
+  let sum = 0;
+  for(let i = 0; i < enhanced.data.length; i += 4)
+    sum += (enhanced.data[i] + enhanced.data[i+1] + enhanced.data[i+2]) / 3;
+  const avg = sum / (enhanced.data.length / 4);
+  for(let i = 0; i < enhanced.data.length; i += 4){
+    const lum = (enhanced.data[i] + enhanced.data[i+1] + enhanced.data[i+2]) / 3;
+    const val = lum > avg ? 255 : 0;
+    enhanced.data[i] = enhanced.data[i+1] = enhanced.data[i+2] = val;
+  }
+  const code2 = jsQR(enhanced.data, width, height, { inversionAttempts: "attemptBoth" });
+  if(code2 && code2.data && !results.includes(code2.data)) results.push(code2.data);
+
+  return results;
 }
 
 /* ===================== PERIOD SCHEDULE ===================== */
@@ -1137,25 +1426,17 @@ async function startScanner(mode){
 
 function enhanceContrast(imageData){
   const d = imageData.data;
-  // compute average luminance
   let sum = 0;
   for(let i = 0; i < d.length; i += 4){
     sum += (d[i] + d[i+1] + d[i+2]) / 3;
   }
   const avg = sum / (d.length / 4);
-
-  // threshold around average -> hard black/white, kills glare washout
   for(let i = 0; i < d.length; i += 4){
     const lum = (d[i] + d[i+1] + d[i+2]) / 3;
     const val = lum > avg ? 255 : 0;
     d[i] = d[i+1] = d[i+2] = val;
   }
   return imageData;
-}
-
-function resultEl_debug(mode, msg){
-  const el = document.getElementById(mode==='in'?'timeWindowInfo':'scanResultOut');
-  if(el) el.textContent = msg;
 }
 
 function stopScanner(){
@@ -1185,7 +1466,6 @@ function beep(ok=true){
     const ctx = getAudioCtx();
     const now = ctx.currentTime;
     if(ok){
-      // Soft two-tone chime: 880 Hz + 1108 Hz (A5 + C#6), sine wave, quick fade
       [880, 1108].forEach((freq, i) => {
         const o = ctx.createOscillator();
         const g = ctx.createGain();
@@ -1199,7 +1479,6 @@ function beep(ok=true){
         o.stop(now + 0.32 + i*0.04);
       });
     } else {
-      // Low soft thud for error
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
@@ -1222,13 +1501,12 @@ function showToast(msg, isErr=false){
   _toastTimer = setTimeout(()=>{ t.className = ''; }, 2200);
 }
 
-const _scanLock = new Set(); // synchronous in-flight guard
+const _scanLock = new Set();
 async function handleScan(studentId, mode, officer){
   const resultEl = document.getElementById(mode==='in'?'scanResult':'scanResultOut');
   const normalized = studentId.trim();
   if(_scanLock.has(normalized)) return;
   if(sessionScannedToday.has(normalized)){
-    const resultEl = document.getElementById(mode==='in'?'scanResult':'scanResultOut');
     showToast('Already scanned: ' + normalized, true);
     resultEl.className='scan-result err-flash';
     resultEl.textContent = 'Already scanned';
@@ -1255,7 +1533,7 @@ async function handleScan(studentId, mode, officer){
     return;
   }
 
-  sessionScannedToday.add(normalized); // add synchronously before any await
+  sessionScannedToday.add(normalized);
   if(mode==='in'){
     await processClockIn(student, officer);
     resultEl.className='scan-result ok-flash';
@@ -1273,13 +1551,19 @@ async function handleScan(studentId, mode, officer){
   _scanLock.delete(normalized);
 }
 
-/* ===================== TIME WINDOW LOGIC ===================== */
+/* ===================== TIME WINDOW LOGIC =====================
+   Grace period: 7:00 AM – 7:15 AM  → On Time
+                 7:16 AM – 7:59 AM  → Late
+   ============================================================ */
 function classifyClockIn(now){
-  const t = now.getHours()*60 + now.getMinutes();
-  if(t >= 360 && t <= 419) return {status:"Early Clock-In", flagged:false, minutesLate:0};
-  if(t === 420)            return {status:"On Time",        flagged:false, minutesLate:0};
-  if(t >= 421 && t <= 479) return {status:"Late",           flagged:false, minutesLate:t-420};
-  return {status:"Pending Review", flagged:true, minutesLate: t>420?t-420:null};
+  const t = now.getHours() * 60 + now.getMinutes();
+  // Early: before 7:00 AM (360 min)
+  if(t >= 360 && t <= 374) return { status:"On Time",        flagged:false, minutesLate:0 };       // 7:00–7:14
+  if(t === 375)             return { status:"On Time",        flagged:false, minutesLate:0 };       // 7:15 exactly — still grace
+  if(t >= 360 && t <= 375) return { status:"On Time",        flagged:false, minutesLate:0 };       // safety catch-all 7:00–7:15
+  if(t < 360)               return { status:"Early Clock-In", flagged:false, minutesLate:0 };
+  if(t >= 376 && t <= 479)  return { status:"Late",           flagged:false, minutesLate: t - 375 }; // 7:16–7:59
+  return { status:"Pending Review", flagged:true, minutesLate: t > 375 ? t - 375 : null };
 }
 
 async function processClockIn(student, officer){
@@ -1377,7 +1661,6 @@ async function renderReview(){
   const today=todayStr(), records=await getAll('records');
   const todayRecs=records.filter(r=>r.date===today&&r.type==='in');
 
-  // Pending flags
   const pending=todayRecs.filter(r=>r.flagged&&!r.flagResolved);
   const pendingEl=document.getElementById('pendingList');
   pendingEl.innerHTML=pending.length===0
@@ -1408,7 +1691,6 @@ async function renderReview(){
         <button class="btn sm" onclick="resolveFlag(${r.recId})">Resolve Entry</button>
       </div>`).join('');
 
-  // Cut class flags
   const cutClass=todayRecs.filter(r=>r.cutClassFlag&&!r.cutClassResolved);
   document.getElementById('cutClassList').innerHTML=cutClass.length===0
     ? `<div class="empty-state">No cut class flags today.</div>`
@@ -1422,7 +1704,6 @@ async function renderReview(){
         </div>
       </div>`).join('');
 
-  // Full table
   const students=await getAll('students');
   const allRecs=todayRecs.slice().sort((a,b)=>a.studentName.localeCompare(b.studentName));
   let tableHtml=allRecs.map(r=>`
@@ -1561,7 +1842,7 @@ async function getRecordsForDate(date){
         };
   });
 }
-  
+
 async function exportData(format){
   try {
     const date=document.getElementById('exportDate').value||todayStr();
@@ -1619,7 +1900,6 @@ async function exportRange(format){
 }
 
 async function systemReset(){
-  // Step 1 — bold red warning dialog
   const warn = confirm(
     "⚠ SYSTEM RESET — READ CAREFULLY\n\n" +
     "This will permanently delete:\n" +
@@ -1632,7 +1912,6 @@ async function systemReset(){
   );
   if(!warn) return;
 
-  // Step 2 — name confirmation
   const name = prompt(
     "To confirm, type the full name of the person authorizing this reset.\n\n" +
     "This name will be permanently recorded before all data is wiped."
@@ -1642,7 +1921,6 @@ async function systemReset(){
     return;
   }
 
-  // Step 3 — final confirmation with name shown back
   const final = confirm(
     "FINAL CONFIRMATION\n\n" +
     "Authorized by: " + name.trim() + "\n\n" +
@@ -1652,7 +1930,6 @@ async function systemReset(){
   );
   if(!final) return;
 
-  // Wipe all stores
   try {
     const stores = ['students', 'records', 'logs', 'config'];
     for(const store of stores){
@@ -1663,7 +1940,6 @@ async function systemReset(){
       });
     }
 
-    // Log the reset as the very first entry in the freshly cleared log
     await put('logs', {
       timestamp: fullTimestamp(),
       officer: name.trim(),
@@ -1742,13 +2018,13 @@ async function init(){
   window.addEventListener('online',  ()=>{ renderDashboard(); updateOnlineStatus(); });
   window.addEventListener('offline', ()=>{ renderDashboard(); updateOnlineStatus(); });
 
-  // Register real service worker from /sw.js
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('/sw.js')
       .then(reg=>console.log('SW registered, scope:', reg.scope))
       .catch(err=>console.warn('SW registration failed:', err));
   }
 }
+
 /* ===================== BULK IMPORT ===================== */
 async function bulkImportNames(names){
   const statusEl = document.getElementById('importStatus');
@@ -1792,12 +2068,10 @@ async function bulkImportFile(){
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, {header:1});
 
-    // Grab first column, skip header row if it looks like a label
     let names = rows
       .map(r => String(r[0]||'').trim())
       .filter(Boolean);
 
-    // Auto-detect and skip header if first row looks like a label (no comma, short, non-name)
     if(names.length && names[0].toLowerCase().match(/^(name|student|full.?name|last.?name)$/)){
       names = names.slice(1);
     }
@@ -1811,8 +2085,8 @@ async function bulkImportFile(){
     statusEl.style.color = 'var(--red)';
   }
 }
+
 /* ===================== OFFLINE RELOAD GUARD ===================== */
-// Track if reload was intentionally blocked — suppress beforeunload when we handle it ourselves
 let _blockingReload = false;
 
 window.addEventListener('keydown', (e) => {
@@ -1828,15 +2102,16 @@ window.addEventListener('keydown', (e) => {
     }
     setTimeout(()=>{ _blockingReload = false; }, 100);
   }
-}, true); // capture phase — fires before browser handles it
+}, true);
 
 window.addEventListener('beforeunload', (e) => {
-  if(_blockingReload) return; // already handled by keydown, skip
+  if(_blockingReload) return;
   if(!navigator.onLine){
     e.preventDefault();
-    e.returnValue = ''; // triggers browser's own dialog — unavoidable for mouse-click reload
+    e.returnValue = '';
   }
 });
+
 init();
 </script>
 </body>
