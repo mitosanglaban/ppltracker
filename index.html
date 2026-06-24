@@ -1216,24 +1216,37 @@ async function importQRsFromPDF(){
 
   if(matched.length === 0 && unmatched.length === 0){
     statusEl.style.color = 'var(--yellow)';
-    statusEl.textContent = 'No student data found. Re-print your QR sheet using "Print All QR Codes" and save as PDF again — older PDFs won\'t have the embedded data.';
+    statusEl.textContent = 'No student data found. Re-print your QR sheet using "Print All QR Codes" and save as PDF again.';
     return;
   }
 
-  let summary = '';
-  if(matched.length){
-    summary += `<span style="color:var(--green);font-weight:700;">✓ ${matched.length} student QR code(s) found and matched:</span><br>`;
-    summary += matched.map(n => `&nbsp;&nbsp;• ${n}`).join('<br>') + '<br><br>';
+  // Enroll all found students that aren't already in the roster
+  let added = 0, skipped = 0;
+  for(const raw of [...matched.map(n=>n), ...unmatched]){
+    // matched gives us the canonical name; unmatched gives us the raw QR value
+    const name = raw.trim();
+    if(!name) continue;
+    const existing = await getOne('students', name);
+    if(existing){ skipped++; continue; }
+    await put('students', {id: name, name});
+    await logAction("System", "Student Enrolled (PDF QR Import)", name);
+    added++;
   }
-  if(unmatched.length){
-    summary += `<span style="color:var(--yellow);font-weight:700;">⚠ ${unmatched.length} unrecognized code(s) — not in roster:</span><br>`;
-    summary += unmatched.map(n => `&nbsp;&nbsp;• ${n}`).join('<br>');
+
+  // Rebuild matched/unmatched labels now that we've enrolled
+  let summary = '';
+  if(added > 0){
+    summary += `<span style="color:var(--green);font-weight:700;">✓ ${added} student(s) enrolled from PDF:</span><br>`;
+  }
+  if(skipped > 0){
+    summary += `<span style="color:var(--text-muted);font-weight:700;">${skipped} already in roster — skipped.</span><br>`;
   }
 
   statusEl.style.color = 'var(--text)';
   statusEl.innerHTML = summary;
 
-  await logAction("System", "PDF QR Import", `${matched.length} matched, ${unmatched.length} unrecognized. File: ${file.name}`);
+  await logAction("System", "PDF QR Import", `${added} enrolled, ${skipped} skipped. File: ${file.name}`);
+  renderRoster();
 }
 
 /* ===================== PERIOD SCHEDULE ===================== */
