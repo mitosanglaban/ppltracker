@@ -1127,12 +1127,13 @@ async function printAllQRs(){
     .box{border:1px solid #ccc;border-radius:8px;padding:10px;text-align:center;width:140px;background:#fff;}
     .box img{width:110px;height:110px;display:block;margin:0 auto 6px;}
     .name{font-size:11px;font-weight:700;color:#111;word-break:break-word;}
-    @media print{body{padding:8px;}h2{font-size:13px;}}
+    .qrdata{font-size:1px;color:#fff;user-select:none;line-height:1;height:1px;overflow:hidden;}
+    @media print{body{padding:8px;}h2{font-size:13px;}.qrdata{font-size:1px;}}
   </style></head><body><h2>12-Thomson — Student QR Codes</h2><div class="grid">`;
   for(const s of students){
     try {
       const url = await QRCode.toDataURL(s.id, {width:220, margin:1});
-      html += `<div class="box"><img src="${url}"><div class="name">${s.name}</div></div>`;
+      html += `<div class="box"><img src="${url}"><div class="name">${s.name}</div><div class="qrdata">PPLTRACKER_QR:${s.id}</div></div>`;
     } catch(e) {
       html += `<div class="box"><div class="name" style="color:red;">QR Error<br>${s.name}</div></div>`;
     }
@@ -1188,50 +1189,19 @@ async function importQRsFromPDF(){
   const totalPages = pdfDoc.numPages;
 
   for(let pageNum = 1; pageNum <= totalPages; pageNum++){
-    statusEl.textContent = `Scanning page ${pageNum} of ${totalPages}…`;
-
+    statusEl.textContent = `Reading page ${pageNum} of ${totalPages}…`;
     const page = await pdfDoc.getPage(pageNum);
-    const pageCodesFound = new Set();
 
-    for(const scale of [3.0, 5.0, 7.0, 2.0]){
-      const viewport = page.getViewport({ scale });
-      const canvas = document.createElement('canvas');
-      canvas.width  = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      await page.render({ canvasContext: ctx, viewport }).promise;
+    // Extract text layer — this is instant and 100% reliable for browser-saved PDFs
+    const textContent = await page.getTextContent();
+    const fullText = textContent.items.map(i => i.str).join(' ');
 
-      const W = canvas.width;
-      const H = canvas.height;
-
-      let safety = 0;
-      while(safety++ < 100){
-        const imgData = ctx.getImageData(0, 0, W, H);
-        let code = jsQR(imgData.data, W, H, { inversionAttempts: "dontInvert" });
-        if(!code || !code.data || code.data.trim().length < 3){
-          code = jsQR(imgData.data, W, H, { inversionAttempts: "invertFirst" });
-        }
-        if(!code || !code.data || code.data.trim().length < 3) break;
-
-        pageCodesFound.add(code.data.trim());
-
-        const loc = code.location;
-        const xs  = [loc.topLeftCorner.x, loc.topRightCorner.x, loc.bottomLeftCorner.x, loc.bottomRightCorner.x];
-        const ys  = [loc.topLeftCorner.y, loc.topRightCorner.y, loc.bottomLeftCorner.y, loc.bottomRightCorner.y];
-        const pad = 30;
-        const rx  = Math.max(0, Math.min(...xs) - pad);
-        const ry  = Math.max(0, Math.min(...ys) - pad);
-        const rw  = Math.min(W - rx, Math.max(...xs) - Math.min(...xs) + pad * 2);
-        const rh  = Math.min(H - ry, Math.max(...ys) - Math.min(...ys) + pad * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(rx, ry, rw, rh);
-      }
-
-      if(pageCodesFound.size > 0) break;
-    }
-
-    for(const raw of pageCodesFound){
-      if(seen.has(raw)) continue;
+    // Find all PPLTRACKER_QR: markers
+    const regex = /PPLTRACKER_QR:([^\s]+(?:\s[^\s]+)*?)(?=PPLTRACKER_QR:|$)/g;
+    let match;
+    while((match = regex.exec(fullText)) !== null){
+      const raw = match[1].trim();
+      if(!raw || seen.has(raw)) continue;
       seen.add(raw);
       const lower = raw.toLowerCase();
       if(studentMap.has(lower)){
@@ -1246,7 +1216,7 @@ async function importQRsFromPDF(){
 
   if(matched.length === 0 && unmatched.length === 0){
     statusEl.style.color = 'var(--yellow)';
-    statusEl.textContent = 'No QR codes detected. Make sure the PDF was saved from the "Print All QR Codes" page.';
+    statusEl.textContent = 'No student data found. Re-print your QR sheet using "Print All QR Codes" and save as PDF again — older PDFs won\'t have the embedded data.';
     return;
   }
 
@@ -1256,7 +1226,7 @@ async function importQRsFromPDF(){
     summary += matched.map(n => `&nbsp;&nbsp;• ${n}`).join('<br>') + '<br><br>';
   }
   if(unmatched.length){
-    summary += `<span style="color:var(--yellow);font-weight:700;">⚠ ${unmatched.length} unrecognized QR code(s) — not in roster:</span><br>`;
+    summary += `<span style="color:var(--yellow);font-weight:700;">⚠ ${unmatched.length} unrecognized code(s) — not in roster:</span><br>`;
     summary += unmatched.map(n => `&nbsp;&nbsp;• ${n}`).join('<br>');
   }
 
