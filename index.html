@@ -1182,11 +1182,8 @@ async function importQRsFromPDF(){
   const students = await getAll('students');
   const studentMap = new Map(students.map(s => [s.id.trim().toLowerCase(), s]));
 
-  const offscreenCanvas = document.createElement('canvas');
-  const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
-
-  const seen    = new Set();
-  const matched = [];
+  const seen      = new Set();
+  const matched   = [];
   const unmatched = [];
   const totalPages = pdfDoc.numPages;
 
@@ -1194,62 +1191,45 @@ async function importQRsFromPDF(){
     statusEl.textContent = `Scanning page ${pageNum} of ${totalPages}…`;
 
     const page = await pdfDoc.getPage(pageNum);
-
-    // Try several scales — higher scale = each QR is bigger = easier to decode
-    // Stop as soon as we find all QRs on the page (or exhaust scales)
-    const scales = [3.0, 4.0, 2.0, 5.0];
     const pageCodesFound = new Set();
 
-    for(const scale of scales){
+    for(const scale of [3.0, 5.0, 7.0, 2.0]){
       const viewport = page.getViewport({ scale });
-      offscreenCanvas.width  = viewport.width;
-      offscreenCanvas.height = viewport.height;
-      await page.render({ canvasContext: offscreenCtx, viewport }).promise;
+      const canvas = document.createElement('canvas');
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      await page.render({ canvasContext: ctx, viewport }).promise;
 
-      const W = offscreenCanvas.width;
-      const H = offscreenCanvas.height;
-
-      // ── Pass 1: scan the full page as one image ──
-      const fullData = offscreenCtx.getImageData(0, 0, W, H);
-      const found = jsQR(fullData.data, W, H, { inversionAttempts: "dontInvert" });
-      if(found && found.data && found.data.trim().length >= 3){
-        pageCodesFound.add(found.data.trim());
-      }
-
-      // ── Pass 2: crop tightly around each QR using detected corner points ──
-      // jsQR gives us the location of the QR it found; blank it out and scan again
-      // to find the next one — repeat until no more are found
-      const workCanvas = document.createElement('canvas');
-      workCanvas.width = W; workCanvas.height = H;
-      const workCtx = workCanvas.getContext('2d', { willReadFrequently: true });
-      workCtx.drawImage(offscreenCanvas, 0, 0);
+      const W = canvas.width;
+      const H = canvas.height;
 
       let safety = 0;
-      while(safety++ < 60){
-        const imgData = workCtx.getImageData(0, 0, W, H);
-        const code = jsQR(imgData.data, W, H, { inversionAttempts: "dontInvert" });
+      while(safety++ < 100){
+        const imgData = ctx.getImageData(0, 0, W, H);
+        let code = jsQR(imgData.data, W, H, { inversionAttempts: "dontInvert" });
+        if(!code || !code.data || code.data.trim().length < 3){
+          code = jsQR(imgData.data, W, H, { inversionAttempts: "invertFirst" });
+        }
         if(!code || !code.data || code.data.trim().length < 3) break;
 
         pageCodesFound.add(code.data.trim());
 
-        // White out the detected QR region so jsQR finds the next one
         const loc = code.location;
-        const xs = [loc.topLeftCorner.x, loc.topRightCorner.x, loc.bottomLeftCorner.x, loc.bottomRightCorner.x];
-        const ys = [loc.topLeftCorner.y, loc.topRightCorner.y, loc.bottomLeftCorner.y, loc.bottomRightCorner.y];
-        const pad = 20;
-        const rx = Math.max(0, Math.min(...xs) - pad);
-        const ry = Math.max(0, Math.min(...ys) - pad);
-        const rw = Math.min(W - rx, Math.max(...xs) - Math.min(...xs) + pad * 2);
-        const rh = Math.min(H - ry, Math.max(...ys) - Math.min(...ys) + pad * 2);
-        workCtx.fillStyle = '#ffffff';
-        workCtx.fillRect(rx, ry, rw, rh);
+        const xs  = [loc.topLeftCorner.x, loc.topRightCorner.x, loc.bottomLeftCorner.x, loc.bottomRightCorner.x];
+        const ys  = [loc.topLeftCorner.y, loc.topRightCorner.y, loc.bottomLeftCorner.y, loc.bottomRightCorner.y];
+        const pad = 30;
+        const rx  = Math.max(0, Math.min(...xs) - pad);
+        const ry  = Math.max(0, Math.min(...ys) - pad);
+        const rw  = Math.min(W - rx, Math.max(...xs) - Math.min(...xs) + pad * 2);
+        const rh  = Math.min(H - ry, Math.max(...ys) - Math.min(...ys) + pad * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(rx, ry, rw, rh);
       }
 
-      // If we found at least some codes at this scale, don't keep trying more scales
       if(pageCodesFound.size > 0) break;
     }
 
-    // Classify each found code
     for(const raw of pageCodesFound){
       if(seen.has(raw)) continue;
       seen.add(raw);
@@ -1266,7 +1246,7 @@ async function importQRsFromPDF(){
 
   if(matched.length === 0 && unmatched.length === 0){
     statusEl.style.color = 'var(--yellow)';
-    statusEl.textContent = 'No QR codes detected in this PDF. Try saving the PDF at a higher quality.';
+    statusEl.textContent = 'No QR codes detected. Make sure the PDF was saved from the "Print All QR Codes" page.';
     return;
   }
 
