@@ -1133,7 +1133,7 @@ async function printAllQRs(){
   for(const s of students){
     try {
       const url = await QRCode.toDataURL(s.id, {width:220, margin:1});
-      html += `<div class="box"><img src="${url}"><div class="name">${s.name}</div><div class="qrdata">PPLTRACKER_QR:${s.id}</div></div>`;
+      html += `<div class="box"><img src="${url}"><div class="name">${s.name}</div><div style="font-size:6px;color:#aaa;margin-top:2px;word-break:break-all;">PPLTRACKER_QR:${s.id}</div></div>`;
     } catch(e) {
       html += `<div class="box"><div class="name" style="color:red;">QR Error<br>${s.name}</div></div>`;
     }
@@ -1194,13 +1194,13 @@ async function importQRsFromPDF(){
 
     // Extract text layer — this is instant and 100% reliable for browser-saved PDFs
     const textContent = await page.getTextContent();
-    const fullText = textContent.items.map(i => i.str).join(' ');
+    const fullText = textContent.items.map(i => i.str).join('\n');
 
-    // Find all PPLTRACKER_QR: markers
-    const regex = /PPLTRACKER_QR:([^\s]+(?:\s[^\s]+)*?)(?=PPLTRACKER_QR:|$)/g;
-    let match;
-    while((match = regex.exec(fullText)) !== null){
-      const raw = match[1].trim();
+    const lines = fullText.split('\n');
+    for(const line of lines){
+      const idx = line.indexOf('PPLTRACKER_QR:');
+      if(idx === -1) continue;
+      const raw = line.slice(idx + 'PPLTRACKER_QR:'.length).trim();
       if(!raw || seen.has(raw)) continue;
       seen.add(raw);
       const lower = raw.toLowerCase();
